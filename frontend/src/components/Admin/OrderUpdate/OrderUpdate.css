@@ -1,0 +1,16 @@
+.order-update-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--sp-8);
+  align-items: start;
+}
+.order-update-info { display: flex; flex-direction: column; gap: var(--sp-5); }
+.order-update-form-card { height: fit-content; }
+.order-update-form-title {
+  font-family: var(--ff-body);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semi);
+  color: var(--c-ink);
+  margin-bottom: var(--sp-5);
+}
+@media (max-width: 900px) { .order-update-grid { grid-template-columns: 1fr; } }

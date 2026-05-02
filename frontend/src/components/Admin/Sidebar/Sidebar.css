@@ -1,0 +1,87 @@
+.admin-sidebar {
+  width: var(--sidebar-w);
+  background: var(--c-forest);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  align-self: flex-start;
+}
+
+.admin-sidebar__brand {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-6) var(--sp-5);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  text-decoration: none;
+  gap: 2px;
+}
+.admin-sidebar__brand span {
+  font-family: var(--ff-display);
+  font-size: var(--fs-lg);
+  color: white;
+  line-height: 1.2;
+}
+.admin-sidebar__brand small {
+  font-size: var(--fs-xs);
+  color: var(--c-lime-light);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) var(--sp-3);
+  gap: 2px;
+  flex: 1;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  font-family: var(--ff-body);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--ease-fast);
+}
+.admin-nav-link svg { font-size: 1.1rem; flex-shrink: 0; }
+.admin-nav-link:hover { background: rgba(255,255,255,0.08); color: white; }
+.admin-nav-link--active { background: rgba(255,255,255,0.12); color: white; }
+.admin-nav-link--toggle { justify-content: flex-start; }
+.admin-nav-chevron { margin-left: auto; }
+
+.admin-nav-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--sp-5);
+  margin-top: 2px;
+}
+.admin-nav-sublink {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: rgba(255,255,255,0.52);
+  text-decoration: none;
+  transition: all var(--ease-fast);
+}
+.admin-nav-sublink svg { font-size: 1rem; }
+.admin-nav-sublink:hover { color: white; background: rgba(255,255,255,0.07); }
+.admin-nav-sublink.admin-nav-link--active { color: var(--c-lime-light); }
