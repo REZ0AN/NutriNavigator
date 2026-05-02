@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+/* ── Brand ── */
+  --c-forest:        #0a4a2d;   /* medium sage green — main brand */
+  --c-forest-mid:    #52B788;   /* fresh mint — hover/light states */
+  --c-forest-hover:  #1B4332;   /* deep green — pressed/active */
+  --c-lime:          #95D5B2;   /* soft mint — accent */
+  --c-lime-dark:     #52B788;   /* medium mint — accent hover */
+  --c-lime-light:    #B7E4C7;   /* pale mint — muted accent */
+  --c-lime-wash:     #D8F3DC;   /* whisper green — backgrounds */
+
+  /* ── Neutrals ── */
+  --c-cream:         #F0F7F4;   /* green-tinted white — page bg */
+  --c-cream-dark:    #E0EFE8;   /* slightly deeper — hover bg */
+  --c-white:         #FFFFFF;
+  --c-off-white:     #F6FBF8;   /* card surfaces */
+  --c-stone:         #C8DDD4;   /* green-tinted border */
+  --c-stone-light:   #DCF0E6;   /* subtle dividers */
+
+  /* ── Text ── */
+  --c-ink:           #1A1A1A;
+  --c-ink-mid:       #4A4A4A;
+  --c-ink-soft:      #737373;
+  --c-ink-faint:     #A0A0A0;
+
+  /* ── Semantic ── */
+  --c-green:         #1E7A4A;
+  --c-green-bg:      #E8F5EE;
+  --c-red:           #C0392B;
+  --c-red-bg:        #FDECEA;
+  --c-amber:         #C07B0A;
+  --c-amber-bg:      #FEF3E2;
+  --c-blue:          #1A5F8A;
+  --c-blue-bg:       #E8F2FA;
+
+  /* ── Typography ── */
+  --ff-display: 'DM Serif Display', Georgia, serif;
+  --ff-body:    'Outfit', system-ui, sans-serif;
+
+  --fs-xs:   0.75rem;
+  --fs-sm:   0.875rem;
+  --fs-base: 1rem;
+  --fs-lg:   1.125rem;
+  --fs-xl:   1.25rem;
+  --fs-2xl:  1.5rem;
+  --fs-3xl:  1.875rem;
+  --fs-4xl:  2.25rem;
+  --fs-5xl:  3rem;
+
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semi:     600;
+  --fw-bold:     700;
+
+  /* ── Spacing (8-pt grid) ── */
+  --sp-1: 0.25rem;   --sp-2: 0.5rem;    --sp-3: 0.75rem;
+  --sp-4: 1rem;      --sp-5: 1.25rem;   --sp-6: 1.5rem;
+  --sp-8: 2rem;      --sp-10: 2.5rem;   --sp-12: 3rem;
+  --sp-16: 4rem;     --sp-20: 5rem;     --sp-24: 6rem;
+
+  /* ── Radius ── */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-2xl:  28px;
+  --r-full: 9999px;
+
+  /* ── Shadows ── */
+  --sh-xs: 0 1px 3px rgba(0,0,0,0.06);
+  --sh-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --sh-md: 0 4px 20px rgba(0,0,0,0.10);
+  --sh-lg: 0 8px 40px rgba(0,0,0,0.12);
+  --sh-xl: 0 20px 60px rgba(0,0,0,0.14);
+
+  /* ── Motion ── */
+  --ease-fast: 150ms ease;
+  --ease-base: 240ms ease;
+  --ease-slow: 380ms ease;
+
+  /* ── Layout ── */
+  --header-h:    68px;
+  --sidebar-w:   248px;
+  --content-max: 1200px;
+  --z-header:    100;
+  --z-modal:     200;
+  --z-toast:     300;
+
+  /* ── Semantic aliases (backward compat) ── */
+  --color-primary:        var(--c-forest);
+  --color-primary-light:  var(--c-forest-mid);
+  --color-primary-hover:  var(--c-forest-hover);
+  --color-accent:         var(--c-lime);
+  --color-accent-dark:    var(--c-lime-dark);
+  --color-accent-muted:   var(--c-lime-light);
+  --color-bg:             var(--c-cream);
+  --color-surface:        var(--c-white);
+  --color-surface-raised: var(--c-off-white);
+  --color-border:         var(--c-stone);
+  --color-border-light:   var(--c-stone-light);
+  --color-text-primary:   var(--c-ink);
+  --color-text-secondary: var(--c-ink-mid);
+  --color-text-muted:     var(--c-ink-soft);
+  --color-text-inverse:   var(--c-white);
+  --color-success:        var(--c-green);
+  --color-success-bg:     var(--c-green-bg);
+  --color-error:          var(--c-red);
+  --color-error-bg:       var(--c-red-bg);
+  --color-warning:        var(--c-amber);
+  --color-warning-bg:     var(--c-amber-bg);
+  --color-info:           var(--c-blue);
+  --color-info-bg:        var(--c-blue-bg);
+  --font-display:         var(--ff-display);
+  --font-body:            var(--ff-body);
+  --header-height:        var(--header-h);
+  --sidebar-width:        var(--sidebar-w);
+  --max-content:          var(--content-max);
+  --shadow-xs: var(--sh-xs); --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md); --shadow-lg: var(--sh-lg); --shadow-xl: var(--sh-xl);
+  --transition-fast: var(--ease-fast);
+  --transition-base: var(--ease-base);
+  --transition-slow: var(--ease-slow);
+  --radius-sm: var(--r-sm); --radius-md: var(--r-md); --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl); --radius-full: var(--r-full);
+  --space-1: var(--sp-1);  --space-2: var(--sp-2);  --space-3: var(--sp-3);
+  --space-4: var(--sp-4);  --space-5: var(--sp-5);  --space-6: var(--sp-6);
+  --space-8: var(--sp-8);  --space-10: var(--sp-10); --space-12: var(--sp-12);
+  --space-16: var(--sp-16); --space-20: var(--sp-20); --space-24: var(--sp-24);
+  --text-xs: var(--fs-xs); --text-sm: var(--fs-sm); --text-base: var(--fs-base);
+  --text-lg: var(--fs-lg); --text-xl: var(--fs-xl); --text-2xl: var(--fs-2xl);
+  --text-3xl: var(--fs-3xl); --text-4xl: var(--fs-4xl); --text-5xl: var(--fs-5xl);
+  --weight-light: var(--fw-light); --weight-regular: var(--fw-regular);
+  --weight-medium: var(--fw-medium); --weight-semibold: var(--fw-semi);
+  --weight-bold: var(--fw-bold);
+  --z-header: 100; --z-sidebar: 90;
+}
