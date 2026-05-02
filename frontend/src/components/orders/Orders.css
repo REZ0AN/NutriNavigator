@@ -1,0 +1,128 @@
+.orders-page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6);
+  min-height: calc(100vh - var(--header-h) - 340px);
+}
+
+.orders-title {
+  font-size: var(--fs-3xl);
+  color: var(--c-forest);
+  margin-bottom: var(--sp-8);
+}
+
+.orders-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--c-stone-light);
+  box-shadow: var(--sh-sm);
+  background: var(--c-white);
+}
+
+.orders-table { width: 100%; border-collapse: collapse; }
+
+.orders-table th {
+  background: var(--c-forest);
+  color: white;
+  padding: var(--sp-4) var(--sp-6);
+  text-align: left;
+  font-family: var(--ff-body);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.orders-table td {
+  padding: var(--sp-5) var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--c-ink-mid);
+  border-bottom: 1px solid var(--c-stone-light);
+  vertical-align: middle;
+}
+.orders-table tr:last-child td { border-bottom: none; }
+.orders-table tbody tr {
+  transition: background var(--ease-fast);
+}
+.orders-table tbody tr:hover td { background: var(--c-off-white); }
+
+.orders-id {
+  font-family: monospace;
+  font-size: var(--fs-xs);
+  color: var(--c-ink-faint);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px var(--sp-4);
+  border-radius: var(--r-full);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semi);
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+}
+.status--green  { background: var(--c-green-bg);  color: var(--c-green);  }
+.status--blue   { background: var(--c-blue-bg);   color: var(--c-blue);   }
+.status--orange { background: var(--c-amber-bg);  color: var(--c-amber);  }
+
+.orders-view-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  color: var(--c-forest);
+  font-size: 1.15rem;
+  background: var(--c-lime-wash);
+  transition: all var(--ease-fast);
+}
+.orders-view-link:hover {
+  background: var(--c-forest);
+  color: white;
+}
+
+.orders-empty {
+  padding: var(--sp-20) var(--sp-4);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  align-items: center;
+  color: var(--c-ink-soft);
+  min-height: 300px;
+  justify-content: center;
+}
+
+/* ── Order Details ── */
+.order-details-page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6);
+  min-height: calc(100vh - var(--header-h) - 340px);
+}
+.order-id-span {
+  font-family: monospace;
+  font-size: var(--fs-lg);
+  color: var(--c-ink-faint);
+}
+.order-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-6);
+  margin-top: var(--sp-8);
+}
+.order-details-col { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+@media (max-width: 768px) {
+  .order-details-grid { grid-template-columns: 1fr; }
+  .orders-page, .order-details-page { padding: var(--sp-6) var(--sp-4); }
+  .orders-id { max-width: 140px; }
+}
