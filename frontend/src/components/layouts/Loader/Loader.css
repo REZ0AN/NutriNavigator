@@ -1,0 +1,23 @@
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--c-cream);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+}
+.loader-ring { position: relative; width: 56px; height: 56px; }
+.loader-ring div {
+  box-sizing: border-box;
+  position: absolute;
+  width: 44px; height: 44px;
+  margin: 6px;
+  border: 3px solid transparent;
+  border-top-color: var(--c-lime);
+  border-radius: 50%;
+  animation: spin 1s cubic-bezier(0.5,0,0.5,1) infinite;
+}
+.loader-ring div:nth-child(1) { animation-delay: -0.45s; }
+.loader-ring div:nth-child(2) { animation-delay: -0.3s;  }
+.loader-ring div:nth-child(3) { animation-delay: -0.15s; }
+@keyframes spin { to { transform: rotate(360deg); } }
