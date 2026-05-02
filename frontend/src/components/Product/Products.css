@@ -1,0 +1,158 @@
+/* ── Products page layout ────────────────────────────────────────────── */
+.products-page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-8) var(--sp-6);
+  display: grid;
+  grid-template-columns: 256px 1fr;
+  gap: var(--sp-8);
+  min-height: calc(100vh - var(--header-h));
+}
+
+/* ── Filters sidebar ─────────────────────────────────────────────────── */
+.products-filters {
+  background: var(--c-white);
+  border: 1px solid var(--c-stone-light);
+  border-radius: var(--r-xl);
+  padding: var(--sp-6);
+  height: fit-content;
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-4));
+  box-shadow: var(--sh-xs);
+}
+
+.filters-heading {
+  font-family: var(--ff-body);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--c-ink-faint);
+  margin-bottom: var(--sp-6);
+}
+
+.filter-group {
+  padding-bottom: var(--sp-5);
+  margin-bottom: var(--sp-5);
+  border-bottom: 1px solid var(--c-stone-light);
+}
+.filter-group:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+
+.filter-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semi);
+  color: var(--c-ink-mid);
+  margin-bottom: var(--sp-3);
+}
+.filter-price-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--c-ink-faint);
+  margin-bottom: var(--sp-2);
+}
+
+.filter-category-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: var(--c-ink-mid);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 2px;
+  transition: all var(--ease-fast);
+}
+.filter-category-item:hover { background: var(--c-off-white); color: var(--c-forest); }
+.filter-category-item--active {
+  background: var(--c-lime-wash);
+  color: var(--c-forest);
+  font-weight: var(--fw-semi);
+}
+
+/* ── Products main ───────────────────────────────────────────────────── */
+.products-main { display: flex; flex-direction: column; gap: var(--sp-6); }
+
+.products-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.products-title { font-size: var(--fs-3xl); color: var(--c-forest); }
+.products-count { font-size: var(--fs-sm); color: var(--c-ink-soft); }
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-5);
+}
+
+.products-empty {
+  padding: var(--sp-20) var(--sp-4);
+  text-align: center;
+  color: var(--c-ink-soft);
+  font-size: var(--fs-base);
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--c-stone-light);
+}
+.pagination-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 var(--sp-3);
+  background: var(--c-white);
+  border: 1px solid var(--c-stone);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: var(--c-ink-mid);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  font-family: var(--ff-body);
+}
+.pagination-btn:hover:not(:disabled) {
+  background: var(--c-forest);
+  color: white;
+  border-color: var(--c-forest);
+}
+.pagination-btn--active {
+  background: var(--c-forest);
+  color: white;
+  border-color: var(--c-forest);
+  font-weight: var(--fw-semi);
+}
+.pagination-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .products-page { grid-template-columns: 1fr; }
+  .products-filters {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-4);
+  }
+  .filters-heading { display: none; }
+}
+@media (max-width: 600px) {
+  .products-filters { grid-template-columns: 1fr 1fr; }
+  .products-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+  .products-page { padding: var(--sp-5) var(--sp-4); gap: var(--sp-5); }
+}
+@media (max-width: 380px) {
+  .products-filters { grid-template-columns: 1fr; }
+}
