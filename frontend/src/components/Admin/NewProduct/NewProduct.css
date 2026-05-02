@@ -1,0 +1,30 @@
+.admin-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border: 1.5px dashed var(--c-stone);
+  border-radius: var(--r-md);
+  font-family: var(--ff-body);
+  font-size: var(--fs-sm);
+  color: var(--c-forest);
+  cursor: pointer;
+  background: var(--c-lime-wash);
+  transition: all var(--ease-fast);
+}
+.admin-upload-label:hover { border-color: var(--c-forest); background: var(--c-cream); }
+
+.admin-image-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.admin-image-previews img {
+  width: 78px; height: 78px;
+  object-fit: contain;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-stone-light);
+  background: var(--c-off-white);
+  padding: var(--sp-1);
+}
