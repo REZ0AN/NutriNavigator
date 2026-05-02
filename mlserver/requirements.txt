@@ -1,0 +1,11 @@
+# ─── NutriNavigator ML Server — runtime dependencies ─────────────────────────
+# Install: pip install -r requirements.txt
+
+Flask==3.0.3
+Flask-Cors==4.0.0
+numpy==1.26.4
+scikit-learn==1.4.2
+imbalanced-learn==0.12.2
+pandas==2.2.2
+gunicorn==22.0.0
+python-dotenv
