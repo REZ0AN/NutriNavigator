@@ -32,3 +32,5 @@ datasets/food_recommendation_balanced.csv
 ## node env .gitignore
 node_modules
 /backend/config/config.env
+
+.DS_store
