@@ -17,6 +17,16 @@ const CARD_ELEMENT_STYLE = {
   style: { base: { fontSize: "16px", color: "var(--color-text-primary)", fontFamily: "var(--font-body)", "::placeholder": { color: "var(--color-text-muted)" } } },
 };
 
+const PAYMENT_ATTEMPT_KEY = "paymentAttemptId";
+const PAYMENT_CART_FINGERPRINT_KEY = "paymentAttemptCartFingerprint";
+const cartFingerprint = (items) => JSON.stringify(
+  items.map(({ product, quantity }) => ({ product, quantity }))
+);
+const rotatePaymentAttempt = (fingerprint) => {
+  sessionStorage.setItem(PAYMENT_ATTEMPT_KEY, crypto.randomUUID());
+  sessionStorage.setItem(PAYMENT_CART_FINGERPRINT_KEY, fingerprint);
+};
+
 const ProcessPayment = () => {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
@@ -27,6 +37,18 @@ const ProcessPayment = () => {
   const { shippingInfo, cartItems } = useSelector((s) => s.cartR);
   const { user }  = useSelector((s) => s.userR);
   const { error } = useSelector((s) => s.newOrderR);
+  const currentCartFingerprint = cartFingerprint(cartItems);
+
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      sessionStorage.removeItem(PAYMENT_ATTEMPT_KEY);
+      sessionStorage.removeItem(PAYMENT_CART_FINGERPRINT_KEY);
+      return;
+    }
+    if (sessionStorage.getItem(PAYMENT_CART_FINGERPRINT_KEY) !== currentCartFingerprint) {
+      rotatePaymentAttempt(currentCartFingerprint);
+    }
+  }, [currentCartFingerprint, cartItems.length]);
 
   useEffect(() => {
     if (error) { toast.error(error, { ...toastifyOptions }); dispatch(clearNewOrderError()); }
@@ -35,8 +57,16 @@ const ProcessPayment = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (payBtn.current) payBtn.current.disabled = true;
+    let paymentConfirmed = false;
     try {
-      const { data } = await axios.post("/api/v1/payment/process", { amount: Math.round(orderInfo.totalPrice * 100) });
+      const paymentAttemptId = sessionStorage.getItem(PAYMENT_ATTEMPT_KEY) || crypto.randomUUID();
+      sessionStorage.setItem(PAYMENT_ATTEMPT_KEY, paymentAttemptId);
+      sessionStorage.setItem(PAYMENT_CART_FINGERPRINT_KEY, currentCartFingerprint);
+      const { data } = await axios.post("/api/v1/payment/process", {
+        orderitems: cartItems,
+        shippinginfo: shippingInfo,
+        idempotencyKey: paymentAttemptId,
+      });
       const result = await stripe.confirmCardPayment(data.client_secret, {
         payment_method: {
           card: elements.getElement(CardNumberElement),
@@ -44,22 +74,37 @@ const ProcessPayment = () => {
         },
       });
 
-      if (result.error) { if (payBtn.current) payBtn.current.disabled = false; toast.error(result.error.message, { ...toastifyOptions }); return; }
+      if (result.error) {
+        rotatePaymentAttempt(currentCartFingerprint);
+        if (payBtn.current) payBtn.current.disabled = false;
+        toast.error(result.error.message, { ...toastifyOptions });
+        return;
+      }
 
       if (result.paymentIntent.status === "succeeded") {
+        paymentConfirmed = true;
         const order = {
           shippinginfo: shippingInfo, orderitems: cartItems,
-          itemsprice: orderInfo.subtotal, tax: orderInfo.tax,
-          shippingcost: orderInfo.shippingCharges, totalprice: orderInfo.totalPrice,
+          // The backend recalculates these values from current catalog data.
           paymentinfo: { id: result.paymentIntent.id, status: result.paymentIntent.status },
         };
-        dispatch(createOrder(order));
+        await dispatch(createOrder(order)).unwrap();
         dispatch(clearCart());
         sessionStorage.removeItem("orderInfo");
-        toast.success("Payment successful!", { ...toastifyOptions });
+        sessionStorage.removeItem(PAYMENT_ATTEMPT_KEY);
+        sessionStorage.removeItem(PAYMENT_CART_FINGERPRINT_KEY);
+        toast.success(`Payment successful! Total charged: ৳${data.pricing.totalprice}`, { ...toastifyOptions });
         navigate("/success");
       }
+      else {
+        rotatePaymentAttempt(currentCartFingerprint);
+        if (payBtn.current) payBtn.current.disabled = false;
+        toast.error("Payment was not completed. Please try again.", { ...toastifyOptions });
+      }
     } catch (err) {
+      // A confirmed PaymentIntent must keep its identity so order persistence
+      // can be retried; earlier failures need a fresh Stripe attempt key.
+      if (!paymentConfirmed) rotatePaymentAttempt(currentCartFingerprint);
       if (payBtn.current) payBtn.current.disabled = false;
       toast.error(err.response?.data?.message || "Payment failed", { ...toastifyOptions });
     }

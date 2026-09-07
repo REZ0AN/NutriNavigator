@@ -39,6 +39,14 @@ const productSchema = new mongoose.Schema(
             default: 1,
             min: [0, "Stock cannot be negative"],
         },
+        // One entry per paid checkout reservation. This makes stock
+        // reservation idempotent across process crashes and retries.
+        stockReservations: [
+            {
+                reservationId: { type: String, required: true },
+                quantity: { type: Number, required: true, min: 1 },
+            },
+        ],
         reviewscount: {
             type: Number,
             default: 0,

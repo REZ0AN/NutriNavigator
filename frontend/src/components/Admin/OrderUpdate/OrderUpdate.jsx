@@ -6,7 +6,7 @@ import { MdAccountTree } from "react-icons/md";
 import MetaData from "../../layouts/Header/MetaData";
 import Loader from "../../layouts/Loader/Loader";
 import AdminLayout from "../AdminLayout";
-import { fetchOrderDetails, updateOrderStatus, resetOrderOps, clearAllOrdersError } from "../../../store/slices/orderSlice";
+import { fetchAdminOrderDetails, updateOrderStatus, resetOrderOps, clearAllOrdersError } from "../../../store/slices/orderSlice";
 import { toastifyOptions } from "../../../utils/toastify";
 import "./OrderUpdate.css";
 
@@ -24,7 +24,7 @@ useEffect(() => {
 }, [error, detailError, isUpdated, dispatch, navigate]);
 
 useEffect(() => {
-  dispatch(fetchOrderDetails(id));
+  dispatch(fetchAdminOrderDetails(id));
 }, [dispatch, id]);
 
   const handleSubmit = (e) => {
