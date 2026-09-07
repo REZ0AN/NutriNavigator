@@ -7,7 +7,9 @@ const reconciliationFindOne = jest.fn();
 const reconciliationUpdate = jest.fn();
 const reconciliationDelete = jest.fn();
 const finalizeReconciliation = jest.fn();
+const recoverReconciliationSnapshot = jest.fn();
 const releaseReservationSnapshot = jest.fn();
+const terminalizeReconciliation = jest.fn();
 const Stripe = jest.fn(() => ({
   paymentIntents: { retrieve: retrievePaymentIntent },
   webhooks: { constructEvent },
@@ -25,8 +27,11 @@ jest.unstable_mockModule("../../models/orderModel.js", () => ({
 }));
 jest.unstable_mockModule("../../services/orderFinalizationService.js", () => ({
   createReconciliationSnapshot: jest.fn(),
+  buildReconciliationRecoveryMetadata: jest.fn(() => ({ reconciliation_recovery_version: "1" })),
+  recoverReconciliationSnapshot,
   finalizeReconciliation,
   releaseReservationSnapshot,
+  terminalizeReconciliation,
 }));
 
 const {
@@ -118,7 +123,9 @@ describe("Stripe webhook endpoint", () => {
     reconciliationUpdate.mockReset();
     reconciliationDelete.mockReset();
     finalizeReconciliation.mockReset();
+    recoverReconciliationSnapshot.mockReset();
     releaseReservationSnapshot.mockReset();
+    terminalizeReconciliation.mockReset();
   });
 
   test("verifies the signature and finalizes a matching reconciliation", async () => {
@@ -147,17 +154,40 @@ describe("Stripe webhook endpoint", () => {
     expect(finalizeReconciliation).not.toHaveBeenCalled();
   });
 
+  test("recreates a missing reconciliation from the succeeded PaymentIntent", async () => {
+    const recovered = { _id: "rec-recovered", paymentIntentId: "pi_recover" };
+    constructEvent.mockReturnValue({
+      type: "payment_intent.succeeded",
+      data: { object: { id: "pi_recover", status: "succeeded", metadata: { reconciliation_recovery_version: "1" } } },
+    });
+    reconciliationFindOne.mockResolvedValue(null);
+    recoverReconciliationSnapshot.mockResolvedValue(recovered);
+
+    const { res } = await invoke({ body: Buffer.from("{}"), headers: { "stripe-signature": "sig" } });
+
+    expect(recoverReconciliationSnapshot).toHaveBeenCalledWith(expect.objectContaining({ id: "pi_recover" }));
+    expect(finalizeReconciliation).toHaveBeenCalledWith(recovered);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   test("marks a failed payment and releases any reservation", async () => {
     const reconciliation = { _id: "rec-failed", paymentIntentId: "pi_failed", stockReserved: false };
     constructEvent.mockReturnValue({ type: "payment_intent.payment_failed", data: { object: { id: "pi_failed" } } });
     reconciliationFindOne.mockResolvedValue(reconciliation);
 
     const { res } = await invoke({ body: Buffer.from("{}"), headers: { "stripe-signature": "sig" } });
-    expect(releaseReservationSnapshot).toHaveBeenCalledWith(reconciliation);
-    expect(reconciliationUpdate).toHaveBeenCalledWith(
-      { _id: "rec-failed" },
-      { $set: { paymentStatus: "failed", status: "failed", stockReserved: false } },
-    );
+    expect(terminalizeReconciliation).toHaveBeenCalledWith(reconciliation, { status: "failed", paymentStatus: "failed" });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  test("terminalizes a canceled payment and releases its reservation", async () => {
+    const reconciliation = { _id: "rec-canceled", paymentIntentId: "pi_canceled" };
+    constructEvent.mockReturnValue({ type: "payment_intent.canceled", data: { object: { id: "pi_canceled" } } });
+    reconciliationFindOne.mockResolvedValue(reconciliation);
+
+    const { res } = await invoke({ body: Buffer.from("{}"), headers: { "stripe-signature": "sig" } });
+
+    expect(terminalizeReconciliation).toHaveBeenCalledWith(reconciliation, { status: "canceled", paymentStatus: "canceled" });
     expect(res.status).toHaveBeenCalledWith(200);
   });
 

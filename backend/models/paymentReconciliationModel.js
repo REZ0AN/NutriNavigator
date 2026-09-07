@@ -25,7 +25,8 @@ const paymentReconciliationSchema = new mongoose.Schema(
     totalprice: { type: Number, required: true },
     paymentStatus: { type: String, required: true, default: "succeeded" },
     stockReserved: { type: Boolean, default: false },
-    status: { type: String, enum: ["pending", "recovered", "failed"], default: "pending" },
+    status: { type: String, enum: ["pending", "finalizing", "recovered", "canceling", "failed", "canceled", "expired"], default: "pending" },
+    finalizingAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
