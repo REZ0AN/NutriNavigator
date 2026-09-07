@@ -1,7 +1,7 @@
 # ─── NutriNavigator ML Server — development / training extras ─────────────────
 # Install: pip install -r requirements-dev.txt
 # (includes everything in requirements.txt)
-
+-r requirements.txt
 # Jupyter / notebook
 ipykernel==6.29.4
 ipython==8.23.0
