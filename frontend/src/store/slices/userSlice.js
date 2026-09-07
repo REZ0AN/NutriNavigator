@@ -128,8 +128,10 @@ const userSlice = createSlice({
       .addCase(loginUser.rejected, rejected)
 
       .addCase(registerUser.pending, pending)
-      .addCase(registerUser.fulfilled, (state, { payload }) => {
-        state.loading = false; state.isAuthenticated = true; state.user = payload.user;
+      .addCase(registerUser.fulfilled, (state) => {
+        // Registration only starts email verification. The backend does not
+        // issue a session until the user verifies the address and logs in.
+        state.loading = false; state.isAuthenticated = false; state.user = null;
       })
       .addCase(registerUser.rejected, rejected)
 
