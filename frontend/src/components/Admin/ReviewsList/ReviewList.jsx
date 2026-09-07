@@ -1,77 +1,113 @@
-import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { toast } from "react-toastify";
-import { MdSearch, MdDelete } from "react-icons/md";
 import Rating from "@mui/material/Rating";
+import { MdDelete, MdSearch } from "react-icons/md";
 import MetaData from "../../layouts/Header/MetaData";
+import Loader from "../../layouts/Loader/Loader";
 import AdminLayout from "../AdminLayout";
-import { getAllReviews, deleteReview, resetProductOps, clearProductOpsError } from "../../../store/slices/productSlice";
 import { toastifyOptions } from "../../../utils/toastify";
+import "./ReviewList.css";
+
+const PAGE_SIZE = 25;
 
 const ReviewList = () => {
-  const dispatch  = useDispatch();
-  const { reviews, reviewDeleted, error } = useSelector((s) => s.productOpsR);
+  const [reviews, setReviews] = useState([]);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [rating, setRating] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
 
-  const [productId, setProductId] = useState("");
+  const loadReviews = useCallback(async ({ append = false, pageCursor = "" } = {}) => {
+    append ? setLoadingMore(true) : setLoading(true);
+    setError("");
+    try {
+      const { data } = await axios.get("/api/v1/admin/reviews", {
+        params: { limit: PAGE_SIZE, cursor: pageCursor || undefined, search: search || undefined, rating: rating || undefined, sort },
+      });
+      setReviews((current) => append ? [...current, ...(data.reviews || [])] : (data.reviews || []));
+      setNextCursor(data.nextCursor);
+      setHasNextPage(Boolean(data.hasNextPage));
+    } catch (requestError) {
+      const message = requestError.response?.data?.message || "Unable to load reviews.";
+      setError(message);
+      toast.error(message, toastifyOptions);
+    } finally {
+      append ? setLoadingMore(false) : setLoading(false);
+    }
+  }, [rating, search, sort]);
 
-useEffect(() => {
-  if (error)         { toast.error(error, { ...toastifyOptions }); dispatch(clearProductOpsError()); }
-  if (reviewDeleted) { toast.success("Review deleted", { ...toastifyOptions }); dispatch(resetProductOps()); }
-}, [error, reviewDeleted, dispatch]);
+  useEffect(() => { loadReviews(); }, [loadReviews]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (productId.trim().length === 24) {
-      dispatch(getAllReviews(productId.trim()));
-    } else {
-      toast.error("Please enter a valid 24-character Product ID", { ...toastifyOptions });
+  const averageRating = useMemo(() => reviews.length ? reviews.reduce((total, review) => total + review.rating, 0) / reviews.length : 0, [reviews]);
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    setSearch(searchInput.trim());
+  };
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setRating("");
+    setSort("newest");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await axios.delete(`/api/v1/reviews?id=${deleteTarget.reviewId}&productId=${deleteTarget.productId}`);
+      setReviews((current) => current.filter((review) => review.reviewId !== deleteTarget.reviewId));
+      setDeleteTarget(null);
+      toast.success("Review deleted and product rating recalculated.", toastifyOptions);
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.message || "Unable to delete review.", toastifyOptions);
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
     <AdminLayout>
-      <MetaData title="All Reviews — Admin" />
-      <h1 className="admin-page-title">Reviews</h1>
-
-      <div className="admin-form-card" style={{ marginBottom: "var(--space-6)" }}>
-        <form className="admin-form" onSubmit={handleSearch} style={{ flexDirection: "row", gap: "var(--space-4)" }}>
-          <div className="admin-input-wrap" style={{ flex: 1 }}>
-            <MdSearch />
-            <input
-              type="text" placeholder="Enter Product ID (24 chars)" value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn btn--primary" disabled={productId.length !== 24}>Search</button>
-        </form>
+      <MetaData title="Reviews — Admin" />
+      <div className="reviews-page-heading">
+        <div><h1 className="admin-page-title">Reviews</h1><p>Moderate customer feedback and monitor product sentiment.</p></div>
+        <div className="reviews-summary"><strong>{reviews.length}{hasNextPage ? "+" : ""}</strong><span>loaded</span><Rating value={averageRating} precision={0.1} readOnly size="small" /></div>
       </div>
 
-      {reviews?.length > 0 ? (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead><tr><th>Review ID</th><th>User</th><th>Rating</th><th>Comment</th><th>Actions</th></tr></thead>
-            <tbody>
-              {reviews.map((r) => (
-                <tr key={r._id}>
-                  <td style={{ fontFamily: "monospace", fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>{r._id}</td>
-                  <td>{r.name}</td>
-                  <td><Rating value={r.rating} precision={0.5} readOnly size="small" /></td>
-                  <td style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.comment}</td>
-                  <td>
-                    <button className="admin-action-btn admin-action-btn--delete" onClick={() => dispatch(deleteReview({ reviewId: r._id, productId }))}>
-                      <MdDelete />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div style={{ textAlign: "center", padding: "var(--space-20)", color: "var(--color-text-muted)" }}>
-          {productId ? "No reviews found for this product." : "Enter a Product ID to search reviews."}
-        </div>
+      <section className="reviews-toolbar" aria-label="Review filters">
+        <form onSubmit={submitSearch} className="reviews-search">
+          <div className="admin-input-wrap"><MdSearch /><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search product, reviewer, or comment" aria-label="Search reviews" /><button type="submit">Search</button></div>
+        </form>
+        <label>Rating<select value={rating} onChange={(event) => setRating(event.target.value)}><option value="">All ratings</option>{[5, 4, 3, 2, 1].map((value) => <option key={value} value={value}>{value} stars</option>)}</select></label>
+        <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="highest">Highest rated</option><option value="lowest">Lowest rated</option></select></label>
+        {(search || rating) && <button type="button" className="reviews-clear-button" onClick={clearFilters}>Clear filters</button>}
+      </section>
+
+      {loading ? <Loader /> : error ? <div className="reviews-empty"><strong>Could not load reviews</strong><p>{error}</p><button className="btn btn--primary" onClick={() => loadReviews()}>Try again</button></div> : reviews.length === 0 ? <div className="reviews-empty"><strong>No reviews found</strong><p>Try changing your search or filters.</p></div> : (
+        <section className="reviews-grid" aria-label="Customer reviews">
+          {reviews.map((review) => <article key={review.reviewId} className="review-admin-card">
+            <div className="review-admin-card__product">
+              {review.productImage ? <img src={review.productImage} alt="" /> : <div className="review-admin-card__image-placeholder">NN</div>}
+              <div><strong>{review.productName}</strong><small>{new Date(review.createdAt).toLocaleDateString()}</small></div>
+            </div>
+            <div className="review-admin-card__body"><div className="review-admin-card__user"><span>{review.userName?.charAt(0).toUpperCase()}</span><strong>{review.userName}</strong></div><Rating value={review.rating} precision={0.5} readOnly size="small" /><p>{review.comment}</p></div>
+            <button type="button" className="admin-action-btn admin-action-btn--delete" aria-label={`Delete review by ${review.userName}`} onClick={(event) => { event.stopPropagation(); setDeleteTarget(review); }}><MdDelete /></button>
+          </article>)}
+        </section>
       )}
+
+      {!loading && hasNextPage && <div className="reviews-load-more"><button className="btn btn--secondary" disabled={loadingMore} onClick={() => loadReviews({ append: true, pageCursor: nextCursor })}>{loadingMore ? "Loading…" : "Load more reviews"}</button></div>}
+
+      {deleteTarget && <div className="review-modal-backdrop" role="presentation" onClick={() => !deleting && setDeleteTarget(null)}><div className="review-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-review-title" onClick={(event) => event.stopPropagation()}><div className="review-confirm-modal__icon"><MdDelete /></div><h2 id="delete-review-title">Delete this review?</h2><p>This permanently removes the review by <strong>{deleteTarget.userName}</strong> and recalculates the rating for <strong>{deleteTarget.productName}</strong>.</p><div className="review-confirm-modal__actions"><button className="btn btn--secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>Keep review</button><button className="btn btn--danger" onClick={confirmDelete} disabled={deleting}>{deleting ? "Deleting…" : "Delete review"}</button></div></div></div>}
     </AdminLayout>
   );
 };

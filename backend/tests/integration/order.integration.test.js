@@ -65,6 +65,33 @@ describeDatabase("order and review API integration", () => {
     await request(app).get(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(200);
   });
 
+  test("exports only delivered orders within the requested delivery range", async () => {
+    const orderData = (paymentId, orderstatus, deliveredat) => ({
+      shippinginfo,
+      orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }],
+      user: owner._id,
+      paymentinfo: { id: paymentId, status: "succeeded" },
+      totalprice: 318,
+      paidat: new Date("2026-08-01T12:00:00Z"),
+      orderstatus,
+      deliveredat,
+      stockReserved: true,
+    });
+    await Order.create([
+      orderData("pi_export_inside", "delivered", new Date("2026-09-05T12:00:00Z")),
+      orderData("pi_export_outside", "delivered", new Date("2026-08-05T12:00:00Z")),
+      orderData("pi_export_shipped", "shipped", undefined),
+    ]);
+
+    const response = await request(app)
+      .get("/api/v1/admin/orders/export?from=2026-09-01&to=2026-09-07")
+      .set("Cookie", cookieFor(admin))
+      .expect(200);
+
+    expect(response.body.orders).toHaveLength(1);
+    expect(response.body.orders[0].paymentinfo.id).toBe("pi_export_inside");
+  });
+
   test("recalculates tampered prices and rejects an invalid payment", async () => {
     const body = { shippinginfo, orderitems: [{ product: product._id, quantity: 2, price: 0.01 }], paymentinfo: { id: "pi_test", status: "succeeded" }, itemsprice: 0.02, tax: 0, shippingcost: 0, totalprice: 0 };
     const response = await request(app).post("/api/v1/order/new").set("Cookie", cookieFor(owner)).send(body).expect(201);
