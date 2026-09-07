@@ -179,3 +179,22 @@ export const totalAmountByDate = catchAsyncErrors(async (req, res) => {
 
     res.status(200).json({ success: true, amounts });
 });
+
+// ─── Export delivered orders for an inclusive date range (Admin) ─────────────
+export const exportDeliveredOrders = catchAsyncErrors(async (req, res, next) => {
+    const { from, to } = req.query;
+    const start = new Date(`${from}T00:00:00.000Z`);
+    const end = new Date(`${to}T00:00:00.000Z`);
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "") || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
+        return next(new ErrorHandler("A valid date range is required.", 400));
+    }
+
+    const orders = await Order.find({
+        orderstatus: "delivered",
+        deliveredat: { $gte: start, $lt: end },
+    }).populate("user", "name email").sort({ deliveredat: 1 });
+
+    res.status(200).json({ success: true, orders });
+});
