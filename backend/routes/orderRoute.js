@@ -3,6 +3,7 @@ import { isAuthenticatedUser, authorizeRoles } from "../middlewares/authMiddlewa
 import {
     newOrder,
     getSingleOrder,
+    getAdminSingleOrder,
     getAllOrders,
     updateOrderStatus,
     deleteOrder,
@@ -24,21 +25,18 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [shippinginfo, orderitems, paymentinfo, itemsprice, tax, shippingcost, totalprice]
+ *             required: [shippinginfo, orderitems, paymentinfo]
  *             properties:
  *               shippinginfo: { $ref: '#/components/schemas/ShippingInfo' }
  *               orderitems:
  *                 type: array
- *                 items: { $ref: '#/components/schemas/OrderItem' }
+ *                 items: { $ref: '#/components/schemas/OrderItemInput' }
  *               paymentinfo:
  *                 type: object
+ *                 required: [id]
  *                 properties:
  *                   id: { type: string }
- *                   status: { type: string }
- *               itemsprice: { type: number }
- *               tax: { type: number }
- *               shippingcost: { type: number }
- *               totalprice: { type: number }
+ *                   status: { type: string, description: Client payment status is ignored; the server verifies Stripe. }
  *     responses:
  *       201:
  *         description: Order created
@@ -194,7 +192,7 @@ router.get("/admin/orders", isAuthenticatedUser, authorizeRoles("admin", "master
  */
 router
     .route("/admin/order/:id")
-    .get(isAuthenticatedUser, authorizeRoles("admin", "master"), getSingleOrder)
+    .get(isAuthenticatedUser, authorizeRoles("admin", "master"), getAdminSingleOrder)
     .put(isAuthenticatedUser, authorizeRoles("admin", "master"), updateOrderStatus)
     .delete(isAuthenticatedUser, authorizeRoles("admin", "master"), deleteOrder);
 

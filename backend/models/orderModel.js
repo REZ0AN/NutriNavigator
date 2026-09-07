@@ -35,6 +35,8 @@ const orderSchema = new mongoose.Schema(
         tax: { type: Number, default: 0 },
         shippingcost: { type: Number, default: 0 },
         totalprice: { type: Number, default: 0 },
+        // Stock is reserved exactly once when the order is created.
+        stockReserved: { type: Boolean, default: false },
         orderstatus: {
             type: String,
             required: true,
@@ -45,6 +47,9 @@ const orderSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+// A PaymentIntent may create at most one order, even if the browser retries.
+orderSchema.index({ "paymentinfo.id": 1 }, { unique: true, sparse: true });
 
 const Order = mongoose.model("orders", orderSchema);
 

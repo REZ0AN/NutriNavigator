@@ -1,39 +1,76 @@
 import Order from "../models/orderModel.js";
-import Product from "../models/productModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import catchAsyncErrors from "../middlewares/catchAsyncErrorHandlingMiddleware.js";
-
-// ─── Helper: decrement stock ──────────────────────────────────────────────────
-const updateStock = async (productId, quantity) => {
-    const product = await Product.findById(productId);
-    if (product) {
-        product.stock = Math.max(0, product.stock - quantity);
-        await product.save({ validateBeforeSave: false });
-    }
-};
+import { calculateOrderPricing } from "./paymentController.js";
+import PaymentReconciliation from "../models/paymentReconciliationModel.js";
+import { finalizeReconciliation, createReconciliationSnapshot, releaseOrderStock } from "../services/orderFinalizationService.js";
+import { verifyPaymentIntent } from "../services/stripeService.js";
 
 // ─── Create order ─────────────────────────────────────────────────────────────
 export const newOrder = catchAsyncErrors(async (req, res) => {
-    const { shippinginfo, orderitems, paymentinfo, itemsprice, tax, shippingcost, totalprice } =
-        req.body;
+    const { shippinginfo, orderitems, paymentinfo } = req.body;
+    const paymentId = paymentinfo?.id;
 
-    const order = await Order.create({
+    const existingOrder = paymentId
+        ? await Order.findOne({ "paymentinfo.id": paymentId, user: req.user.id })
+        : null;
+    if (existingOrder) return res.status(200).json({ success: true, order: existingOrder });
+
+    // A PaymentIntent already linked to another user is never returned to this
+    // caller, even when the caller supplies the correct PaymentIntent ID.
+    if (paymentId && await Order.findOne({ "paymentinfo.id": paymentId })) {
+        return res.status(404).json({ success: false, message: "Order not found." });
+    }
+
+    const reconciliation = paymentId
+        ? await PaymentReconciliation.findOne({ paymentIntentId: paymentId })
+        : null;
+    if (reconciliation && reconciliation.user.toString() !== req.user.id.toString()) {
+        return res.status(404).json({ success: false, message: "Order not found." });
+    }
+    const pricing = reconciliation ? null : await calculateOrderPricing(orderitems);
+    const paymentIntent = reconciliation ? null : await verifyPaymentIntent(paymentId, pricing.amount, pricing.currency);
+    const reconciliationRecord = reconciliation || await createReconciliationSnapshot({
+        paymentIntentId: paymentId,
+        userId: req.user.id,
         shippinginfo,
-        orderitems,
-        paymentinfo,
-        itemsprice,
-        tax,
-        shippingcost,
-        totalprice,
-        paidat: Date.now(),
-        user: req.user.id,
+        pricing,
+        paymentStatus: paymentIntent.status,
     });
+    try {
+      const order = await finalizeReconciliation(reconciliationRecord);
+      res.status(201).json({ success: true, order });
+    } catch (error) {
+      if (error?.code === 11000) {
+        const duplicate = await Order.findOne({ "paymentinfo.id": paymentId, user: req.user.id });
+        if (duplicate) return res.status(200).json({ success: true, order: duplicate });
+        if (await Order.findOne({ "paymentinfo.id": paymentId })) {
+          return res.status(404).json({ success: false, message: "Order not found." });
+        }
+      }
 
-    res.status(201).json({ success: true, order });
+      return res.status(202).json({
+        success: false,
+        reconciliationRequired: true,
+        message: "Payment received; order recovery is pending. Retry this request to complete the order.",
+      });
+    }
 });
 
 // ─── Get single order ─────────────────────────────────────────────────────────
 export const getSingleOrder = catchAsyncErrors(async (req, res, next) => {
+    const order = await Order.findOne({
+        _id: req.params.id,
+        user: req.user.id,
+    }).populate("user", "name email");
+    if (!order) {
+        return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
+    }
+    res.status(200).json({ success: true, order });
+});
+
+// ─── Get single order (Admin) ────────────────────────────────────────────────
+export const getAdminSingleOrder = catchAsyncErrors(async (req, res, next) => {
     const order = await Order.findById(req.params.id).populate("user", "name email");
     if (!order) {
         return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
@@ -59,10 +96,9 @@ export const updateOrderStatus = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler("This order has already been delivered.", 400));
     }
 
-    if (req.body.status === "shipped") {
-        await Promise.all(
-            order.orderitems.map((item) => updateStock(item.product, item.quantity))
-        );
+    const allowedTransitions = { processing: "shipped", shipped: "delivered" };
+    if (req.body.status !== allowedTransitions[order.orderstatus]) {
+        return next(new ErrorHandler(`Invalid order status transition from ${order.orderstatus} to ${req.body.status}.`, 400));
     }
 
     order.orderstatus = req.body.status;
@@ -82,7 +118,19 @@ export const deleteOrder = catchAsyncErrors(async (req, res, next) => {
     if (!order) {
         return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
     }
+    if (order.orderstatus !== "processing") {
+        return next(new ErrorHandler("Only processing orders can be deleted; shipped and delivered orders cannot be fulfilled by deletion.", 400));
+    }
 
+    // Release each marker atomically first. The order remains reserved if any
+    // item fails, so a retry can finish the incomplete release safely.
+    await releaseOrderStock(order);
+    const claimed = await Order.findOneAndUpdate(
+        { _id: req.params.id, stockReserved: true },
+        { $set: { stockReserved: false } },
+        { new: true }
+    );
+    if (!claimed) return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
     await Order.deleteOne({ _id: req.params.id });
 
     res.status(200).json({ success: true, message: "Order deleted successfully." });
