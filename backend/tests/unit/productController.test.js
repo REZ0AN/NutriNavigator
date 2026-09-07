@@ -2,7 +2,11 @@ import { jest } from "@jest/globals";
 
 const findById = jest.fn();
 const findByIdAndUpdate = jest.fn();
-jest.unstable_mockModule("../../models/productModel.js", () => ({ default: { findById, findByIdAndUpdate } }));
+const reviewFindById = jest.fn();
+const reviewDeleteOne = jest.fn();
+const reviewAggregate = jest.fn();
+jest.unstable_mockModule("../../models/productModel.js", () => ({ default: { findById, findByIdAndUpdate, updateOne: jest.fn() } }));
+jest.unstable_mockModule("../../models/reviewModel.js", () => ({ default: { findById: reviewFindById, deleteOne: reviewDeleteOne, aggregate: reviewAggregate } }));
 const { deleteReviews } = await import("../../controllers/productController.js");
 
 const invoke = async (req) => {
@@ -19,7 +23,7 @@ const reviewsWithId = (...reviews) => {
 };
 
 describe("review deletion authorization", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); reviewFindById.mockResolvedValue(null); });
 
   test("rejects a non-owner who is not an administrator", async () => {
     findById.mockResolvedValue({ reviews: reviewsWithId({ _id: "review-1", user: "owner-1", rating: 5 }) });

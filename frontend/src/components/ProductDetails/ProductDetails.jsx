@@ -10,7 +10,7 @@ import DialogActions from "@mui/material/DialogActions";
 import MetaData from "../layouts/Header/MetaData";
 import Loader from "../layouts/Loader/Loader";
 import ReviewCard from "./ReviewCard";
-import { getProductDetails, submitReview, clearProductDetailError, resetProductOps } from "../../store/slices/productSlice";
+import { getProductDetails, getProductReviews, submitReview, clearProductDetailError, resetProductOps } from "../../store/slices/productSlice";
 import { addItemsToCart } from "../../store/slices/cartSlice";
 import { toastifyOptions } from "../../utils/toastify";
 import "./ProductDetails.css";
@@ -19,7 +19,7 @@ const ProductDetails = () => {
   const dispatch = useDispatch();
   const { id } = useParams();
   const { loading, product, error } = useSelector((s) => s.productR);
-  const { reviewSuccess } = useSelector((s) => s.productOpsR);
+  const { reviewSuccess, reviews } = useSelector((s) => s.productOpsR);
 
   const [imgIdx, setImgIdx] = useState(0);
   const [qty, setQty] = useState(1);
@@ -29,13 +29,14 @@ const ProductDetails = () => {
 
   useEffect(() => {
     if (error) { toast.error(error, { ...toastifyOptions }); dispatch(clearProductDetailError()); }
-    if (reviewSuccess) { toast.success("Review submitted!", { ...toastifyOptions }); dispatch(resetProductOps()); }
-  }, [error, reviewSuccess, dispatch]);
+    if (reviewSuccess) { toast.success("Review submitted!", { ...toastifyOptions }); dispatch(getProductReviews(id)); dispatch(resetProductOps()); }
+  }, [error, reviewSuccess, dispatch, id]);
 
   useEffect(() => {
     if (product?._id !== id) {
       dispatch(getProductDetails(id));
     }
+    dispatch(getProductReviews(id));
   }, [dispatch, id, product?._id]);
 
   const handleAddToCart = () => {
@@ -112,9 +113,9 @@ const ProductDetails = () => {
       {/* ── Reviews ── */}
       <div className="pd-reviews-section">
         <h2 className="pd-reviews-heading">Customer Reviews</h2>
-        {product.reviews?.length > 0 ? (
+        {reviews?.length > 0 ? (
           <div className="pd-reviews-grid">
-            {product.reviews.map((r, i) => <ReviewCard key={i} review={r} />)}
+            {reviews.map((r, i) => <ReviewCard key={r._id || i} review={r} />)}
           </div>
         ) : (
           <p className="pd-no-reviews">No reviews yet. Be the first!</p>

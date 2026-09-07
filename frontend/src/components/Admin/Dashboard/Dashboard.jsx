@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import {
   MdInventory, MdShoppingBag, MdPeople,
-  MdWallet,
+  MdWallet, MdDownload,
 } from "react-icons/md";
+import axios from "axios";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -24,19 +25,61 @@ const AMBER  = "#D4830A";
 const BLUE   = "#1A5F8A";
 const PURPLE = "#7B3F9E";
 const PIE_COLORS = { processing: AMBER, shipped: BLUE, delivered: GREEN };
+const PRESET_LABELS = { today: "Today", week: "This Week", month: "This Month", year: "This Year", custom: "Custom Range" };
 
-const buildRevenueData = (orders = []) => {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return {
+const pad = (value) => String(value).padStart(2, "0");
+const formatDateInput = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const getPresetRange = (preset) => {
+  const end = new Date();
+  const start = new Date(end);
+  if (preset === "today") {
+    // start already represents today.
+  } else if (preset === "week") {
+    const day = start.getDay() || 7;
+    start.setDate(start.getDate() - day + 1);
+  } else if (preset === "month") {
+    start.setDate(1);
+  } else if (preset === "year") {
+    start.setMonth(0, 1);
+  }
+  return { from: formatDateInput(start), to: formatDateInput(end) };
+};
+
+const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+const downloadDeliveredOrders = (orders, range) => {
+  const headers = ["Order ID", "Customer", "Email", "Delivered At", "Status", "Total"];
+  const rows = orders.map((order) => [
+    order._id,
+    order.user?.name,
+    order.user?.email,
+    order.deliveredat ? new Date(order.deliveredat).toISOString() : "",
+    order.orderstatus,
+    order.totalprice,
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(csvValue).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `delivered-orders-${range.from}-to-${range.to}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const buildRevenueData = (orders = [], range) => {
+  if (!range?.from || !range?.to || range.from > range.to) return [];
+  const start = new Date(`${range.from}T00:00:00`);
+  const end = new Date(`${range.to}T00:00:00`);
+  const days = [];
+  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    days.push({
       label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      dateStr: d.toISOString().slice(0, 10),
+      dateStr: formatDateInput(d),
       revenue: 0,
-    };
-  });
+    });
+  }
   orders.forEach((o) => {
-    const date = new Date(o.createdAt).toISOString().slice(0, 10);
+    const date = formatDateInput(new Date(o.createdAt));
     const slot = days.find((d) => d.dateStr === date);
     if (slot) slot.revenue += o.totalprice || 0;
   });
@@ -76,6 +119,10 @@ const Dashboard = () => {
   const { products } = useSelector((s) => s.productsR);
   const { orders, totalAmount, loading } = useSelector((s) => s.allOrdersR);
   const { users } = useSelector((s) => s.adminUsersR);
+  const [preset, setPreset] = useState("week");
+  const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [exporting, setExporting] = useState(false);
+  const selectedRange = preset === "custom" ? customRange : getPresetRange(preset);
 
 useEffect(() => {
   dispatch(getAllAdminProducts());
@@ -84,9 +131,36 @@ useEffect(() => {
 }, [dispatch]);
 
   const outOfStock  = products?.filter((p) => p.stock < 1).length || 0;
-  const revenueData = buildRevenueData(orders);
+  const filteredOrders = useMemo(() => {
+    if (!selectedRange.from || !selectedRange.to) return [];
+    const start = new Date(`${selectedRange.from}T00:00:00`);
+    const end = new Date(`${selectedRange.to}T23:59:59.999`);
+    return (orders || []).filter((order) => {
+      const date = new Date(order.createdAt);
+      return date >= start && date <= end;
+    });
+  }, [orders, selectedRange.from, selectedRange.to]);
+  const revenueData = buildRevenueData(filteredOrders, selectedRange);
   const statusData  = buildStatusData(orders);
   const stockData   = buildStockData(products);
+
+  const handleCustomDate = (field, value) => {
+    setPreset("custom");
+    setCustomRange((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleExport = async () => {
+    if (!selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to) return;
+    setExporting(true);
+    try {
+      const { data } = await axios.get("/api/v1/admin/orders/export", { params: selectedRange });
+      downloadDeliveredOrders(data.orders || [], selectedRange);
+    } catch (error) {
+      window.alert(error.response?.data?.message || "Unable to export delivered orders.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const stats = [
     { label: "Total Revenue", value: `৳${(totalAmount || 0).toLocaleString()}`, icon: MdWallet, color: GREEN,  bg: "#EBF7EF", link: "/admin/orders" },
@@ -123,7 +197,25 @@ useEffect(() => {
 
       <div className="dashboard-charts-row">
         <div className="chart-card ">
-          <h3 className="chart-card__title">Revenue — Last 7 Days</h3>
+          <div className="chart-card__header">
+            <div>
+              <h3 className="chart-card__title">Revenue — {PRESET_LABELS[preset]}</h3>
+              <div className="chart-filter-presets" role="group" aria-label="Revenue date presets">
+                {["today", "week", "month", "year"].map((option) => (
+                  <button key={option} type="button" className={preset === option ? "is-active" : ""} onClick={() => setPreset(option)}>
+                    {option === "today" ? "Today" : option === "week" ? "This Week" : option === "month" ? "This Month" : "This Year"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="chart-date-controls">
+              <label>From<input type="date" value={customRange.from} onChange={(event) => handleCustomDate("from", event.target.value)} /></label>
+              <label>To<input type="date" value={customRange.to} onChange={(event) => handleCustomDate("to", event.target.value)} /></label>
+              <button type="button" className="chart-export-button" onClick={handleExport} disabled={exporting || !selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to}>
+                <MdDownload /> {exporting ? "Exporting…" : "Export Delivered"}
+              </button>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={revenueData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2D9CC" vertical={false} />

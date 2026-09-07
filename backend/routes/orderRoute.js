@@ -9,6 +9,7 @@ import {
     deleteOrder,
     myOrders,
     totalAmountByDate,
+    exportDeliveredOrders,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -225,5 +226,7 @@ router
  *                       totalAmount: { type: number }
  */
 router.get("/totalamount", isAuthenticatedUser, authorizeRoles("admin", "master"), totalAmountByDate);
+
+router.get("/admin/orders/export", isAuthenticatedUser, authorizeRoles("admin", "master"), exportDeliveredOrders);
 
 export default router;

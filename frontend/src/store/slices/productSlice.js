@@ -72,7 +72,16 @@ export const submitReview = createAsyncThunk("products/review", async (reviewDat
   }
 });
 
-export const getAllReviews = createAsyncThunk("products/getAllReviews", async (id, { rejectWithValue }) => {
+export const getAllReviews = createAsyncThunk("products/getAllReviews", async ({ limit = 25, cursor = "", search = "", rating = "", productId = "", sort = "newest" } = {}, { rejectWithValue }) => {
+  try {
+    const { data } = await axios.get("/api/v1/admin/reviews", { params: { limit, cursor: cursor || undefined, search: search || undefined, rating: rating || undefined, productId: productId || undefined, sort } });
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Failed");
+  }
+});
+
+export const getProductReviews = createAsyncThunk("products/getProductReviews", async (id, { rejectWithValue }) => {
   try {
     const { data } = await axios.get(`/api/v1/reviews?id=${id}`);
     return data.reviews;
@@ -149,8 +158,10 @@ extraReducers: (builder) => {
     .addCase(submitReview.fulfilled,  (state) => { state.reviewSuccess = true; })
     .addCase(submitReview.rejected,   (state, { payload }) => { state.error = payload; })
 
-    .addCase(getAllReviews.fulfilled,  (state, { payload }) => { state.reviews = payload; })
+    .addCase(getAllReviews.fulfilled,  (state, { payload }) => { state.reviews = payload.reviews; })
     .addCase(getAllReviews.rejected,   (state, { payload }) => { state.error = payload; })
+    .addCase(getProductReviews.fulfilled, (state, { payload }) => { state.reviews = payload; })
+    .addCase(getProductReviews.rejected, (state, { payload }) => { state.error = payload; })
 
     .addCase(deleteReview.fulfilled,  (state) => { state.reviewDeleted = true; })
     .addCase(deleteReview.rejected,   (state, { payload }) => { state.error = payload; });
