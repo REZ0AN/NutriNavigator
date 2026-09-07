@@ -6,6 +6,25 @@ const router = express.Router();
 
 /**
  * @swagger
+ * /payment/webhook:
+ *   post:
+ *     summary: Receive signed Stripe payment events
+ *     tags: [Payment]
+ *     description: Public Stripe callback. The request is authenticated with the Stripe-Signature header, not a user JWT.
+ *     parameters:
+ *       - in: header
+ *         name: Stripe-Signature
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Event received
+ *       400:
+ *         description: Invalid Stripe signature
+ */
+
+/**
+ * @swagger
  * /payment/process:
  *   post:
  *     summary: Create a Stripe PaymentIntent
@@ -15,13 +34,7 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [amount]
- *             properties:
- *               amount:
- *                 type: integer
- *                 description: Amount in smallest currency unit (paisa for INR)
- *                 example: 14900
+ *             $ref: '#/components/schemas/PaymentProcessInput'
  *     responses:
  *       200:
  *         description: PaymentIntent created
@@ -34,7 +47,9 @@ const router = express.Router();
  *                 client_secret:
  *                   type: string
  *                   description: Stripe client secret used by the frontend to confirm payment
- *                   example: pi_3NxK...
+ *                   example: pi_3NxK..._secret_abc123
+ *                 pricing:
+ *                   $ref: '#/components/schemas/CalculatedPricing'
  */
 router.post("/payment/process", isAuthenticatedUser, processPayment);
 

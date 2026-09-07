@@ -15,6 +15,7 @@ import productRouter from "./routes/productRoute.js";
 import userRouter from "./routes/userRoute.js";
 import orderRouter from "./routes/orderRoute.js";
 import paymentRouter from "./routes/paymentRoute.js";
+import { handleStripeWebhook } from "./controllers/paymentController.js";
 import dietRouter from "./routes/dietRoute.js";
 // Middleware
 import errorHandler from "./middlewares/errorHandlingMiddleware.js";
@@ -50,6 +51,14 @@ app.use(
 
 app.use(globalLimiter);
 
+
+// Stripe signature verification requires the untouched request bytes. This
+// route must be registered before the global JSON parser below.
+app.post(
+    "/api/v1/payment/webhook",
+    express.raw({ type: "application/json" }),
+    handleStripeWebhook,
+);
 
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "50mb" }));

@@ -1,4 +1,8 @@
 import swaggerJSDoc from "swagger-jsdoc";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const routesGlob = path.join(path.dirname(fileURLToPath(import.meta.url)), "../routes/*.js");
 
 const options = {
     definition: {
@@ -101,6 +105,7 @@ const options = {
                 },
                 OrderItem: {
                     type: "object",
+                    required: ["name", "price", "quantity", "image", "product"],
                     properties: {
                         name: { type: "string" },
                         price: { type: "number" },
@@ -109,20 +114,60 @@ const options = {
                         product: { type: "string", description: "Product ObjectId" },
                     },
                 },
+                OrderItemInput: {
+                    type: "object",
+                    required: ["product", "quantity"],
+                    properties: {
+                        product: { type: "string", description: "Product ObjectId", example: "64a1b2c3d4e5f6789abcdef0" },
+                        quantity: { type: "integer", minimum: 1, example: 2 },
+                    },
+                },
+                CalculatedPricing: {
+                    type: "object",
+                    readOnly: true,
+                    properties: {
+                        itemsprice: { type: "number", readOnly: true, example: 298 },
+                        tax: { type: "number", readOnly: true, example: 53.64 },
+                        shippingcost: { type: "number", readOnly: true, example: 200 },
+                        totalprice: { type: "number", readOnly: true, example: 551.64 },
+                        currency: { type: "string", readOnly: true, example: "inr" },
+                    },
+                },
+                PaymentProcessInput: {
+                    type: "object",
+                    required: ["orderitems", "shippinginfo"],
+                    properties: {
+                        shippinginfo: { $ref: "#/components/schemas/ShippingInfo" },
+                        orderitems: {
+                            type: "array",
+                            minItems: 1,
+                            items: { $ref: "#/components/schemas/OrderItemInput" },
+                        },
+                        idempotencyKey: {
+                            type: "string",
+                            maxLength: 255,
+                            description: "Optional client retry key. The server namespaces it by authenticated user.",
+                            example: "checkout-attempt-123",
+                        },
+                    },
+                },
                 Order: {
                     type: "object",
+                    required: ["shippinginfo", "orderitems", "paymentinfo", "itemsprice", "tax", "shippingcost", "totalprice", "orderstatus"],
                     properties: {
                         _id: { type: "string" },
                         shippinginfo: { $ref: "#/components/schemas/ShippingInfo" },
                         orderitems: { type: "array", items: { $ref: "#/components/schemas/OrderItem" } },
                         paymentinfo: {
                             type: "object",
+                            required: ["id", "status"],
                             properties: { id: { type: "string" }, status: { type: "string" } },
                         },
-                        itemsprice: { type: "number" },
-                        tax: { type: "number" },
-                        shippingcost: { type: "number" },
-                        totalprice: { type: "number" },
+                        itemsprice: { type: "number", readOnly: true },
+                        tax: { type: "number", readOnly: true },
+                        shippingcost: { type: "number", readOnly: true },
+                        totalprice: { type: "number", readOnly: true },
+                        stockReserved: { type: "boolean", readOnly: true },
                         orderstatus: { type: "string", enum: ["processing", "shipped", "delivered"] },
                         paidat: { type: "string", format: "date-time" },
                         deliveredat: { type: "string", format: "date-time" },
@@ -152,7 +197,7 @@ const options = {
         },
         security: [{ cookieAuth: [] }],
     },
-    apis: ["./backend/routes/*.js"],
+    apis: [routesGlob],
 };
 
 export const swaggerSpec = swaggerJSDoc(options);

@@ -4,6 +4,9 @@ import axios from "axios";
 export const createOrder = createAsyncThunk("orders/create", async (order, { rejectWithValue }) => {
   try {
     const { data } = await axios.post("/api/v1/order/new", order);
+    if (!data.success || !data.order) {
+      return rejectWithValue(data.message || "Order recovery is pending. Please retry from your order details.");
+    }
     return data.order;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || "Order failed");
@@ -22,6 +25,15 @@ export const fetchMyOrders = createAsyncThunk("orders/myOrders", async (_, { rej
 export const fetchOrderDetails = createAsyncThunk("orders/details", async (id, { rejectWithValue }) => {
   try {
     const { data } = await axios.get(`/api/v1/order/${id}`);
+    return data.order;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Not found");
+  }
+});
+
+export const fetchAdminOrderDetails = createAsyncThunk("orders/adminDetails", async (id, { rejectWithValue }) => {
+  try {
+    const { data } = await axios.get(`/api/v1/admin/order/${id}`);
     return data.order;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || "Not found");
@@ -87,7 +99,10 @@ const orderDetailsSlice = createSlice({
     builder
       .addCase(fetchOrderDetails.pending, (state) => { state.loading = true; })
       .addCase(fetchOrderDetails.fulfilled, (state, { payload }) => { state.loading = false; state.order = payload; })
-      .addCase(fetchOrderDetails.rejected, (state, { payload }) => { state.loading = false; state.error = payload; });
+      .addCase(fetchOrderDetails.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
+      .addCase(fetchAdminOrderDetails.pending, (state) => { state.loading = true; })
+      .addCase(fetchAdminOrderDetails.fulfilled, (state, { payload }) => { state.loading = false; state.order = payload; })
+      .addCase(fetchAdminOrderDetails.rejected, (state, { payload }) => { state.loading = false; state.error = payload; });
   },
 });
 
