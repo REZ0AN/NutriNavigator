@@ -5,7 +5,6 @@ import logging
 import pickle
 from pathlib import Path
 
-import numpy as np
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -50,6 +49,7 @@ FOOD_LABELS: dict[int, str] = {
 }
 
 VALID_DISEASE_CODES = set(range(8))
+RECOMMENDATION_TOP_K = 5
 
 if not MODEL_PATH.exists():
     raise FileNotFoundError(
@@ -170,26 +170,46 @@ def food_recommend():
     disease_list = data["diesease"]
     bmi          = round(weight / height ** 2, 4)
 
-    recommended: list[str] = []
+    # Keep the strongest model score for a food across the selected
+    # conditions. This deduplicates overlapping condition results without
+    # inventing a new probability-combination rule.
+    food_confidence: dict[str, float] = {}
 
     for code in disease_list:
         if code == 0:
             continue
 
-        proba   = RFC_MODEL.predict_proba([[age, bmi, gender, code]])
-        indexes = np.where(proba > 0.0)[1]
+        probabilities = RFC_MODEL.predict_proba([[age, bmi, gender, code]])[0]
 
-        for idx in indexes:
-            food = FOOD_LABELS.get(idx)
-            if food and food not in recommended:
-                recommended.append(food)
+        for class_id, probability in zip(RFC_MODEL.classes_, probabilities):
+            food = FOOD_LABELS.get(int(class_id))
+            if food and probability > 0.0:
+                food_confidence[food] = max(
+                    food_confidence.get(food, 0.0), float(probability)
+                )
+
+    ranked_recommendations = sorted(
+        (
+            {"food": food, "confidence": round(confidence, 4)}
+            for food, confidence in food_confidence.items()
+        ),
+        key=lambda recommendation: (
+            -recommendation["confidence"], recommendation["food"]
+        ),
+    )[:RECOMMENDATION_TOP_K]
+    recommended = [item["food"] for item in ranked_recommendations]
 
     logger.info(
         "Recommendation — age=%.0f bmi=%.2f gender=%d diseases=%s → %d foods",
         age, bmi, gender, disease_list, len(recommended),
     )
 
-    return jsonify({"recommended_foods": recommended})
+    return jsonify({
+        # Legacy field retained for the existing backend/frontend consumers.
+        "recommended_foods": recommended,
+        # Ranked results for clients that need model confidence values.
+        "recommendations": ranked_recommendations,
+    })
 
 
 # ─── Error handlers ───────────────────────────────────────────────────────────
