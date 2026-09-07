@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import Rating from "@mui/material/Rating";
-import { MdDelete, MdSearch, MdClose, MdChevronRight } from "react-icons/md";
+import { MdDelete, MdSearch } from "react-icons/md";
 import MetaData from "../../layouts/Header/MetaData";
 import Loader from "../../layouts/Loader/Loader";
 import AdminLayout from "../AdminLayout";
@@ -21,7 +21,6 @@ const ReviewList = () => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedReview, setSelectedReview] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -67,7 +66,6 @@ const ReviewList = () => {
     try {
       await axios.delete(`/api/v1/reviews?id=${deleteTarget.reviewId}&productId=${deleteTarget.productId}`);
       setReviews((current) => current.filter((review) => review.reviewId !== deleteTarget.reviewId));
-      if (selectedReview?.reviewId === deleteTarget.reviewId) setSelectedReview(null);
       setDeleteTarget(null);
       toast.success("Review deleted and product rating recalculated.", toastifyOptions);
     } catch (requestError) {
@@ -96,11 +94,10 @@ const ReviewList = () => {
 
       {loading ? <Loader /> : error ? <div className="reviews-empty"><strong>Could not load reviews</strong><p>{error}</p><button className="btn btn--primary" onClick={() => loadReviews()}>Try again</button></div> : reviews.length === 0 ? <div className="reviews-empty"><strong>No reviews found</strong><p>Try changing your search or filters.</p></div> : (
         <section className="reviews-grid" aria-label="Customer reviews">
-          {reviews.map((review) => <article key={review.reviewId} className="review-admin-card" onClick={() => setSelectedReview(review)}>
+          {reviews.map((review) => <article key={review.reviewId} className="review-admin-card">
             <div className="review-admin-card__product">
               {review.productImage ? <img src={review.productImage} alt="" /> : <div className="review-admin-card__image-placeholder">NN</div>}
               <div><strong>{review.productName}</strong><small>{new Date(review.createdAt).toLocaleDateString()}</small></div>
-              <MdChevronRight className="review-admin-card__chevron" />
             </div>
             <div className="review-admin-card__body"><div className="review-admin-card__user"><span>{review.userName?.charAt(0).toUpperCase()}</span><strong>{review.userName}</strong></div><Rating value={review.rating} precision={0.5} readOnly size="small" /><p>{review.comment}</p></div>
             <button type="button" className="admin-action-btn admin-action-btn--delete" aria-label={`Delete review by ${review.userName}`} onClick={(event) => { event.stopPropagation(); setDeleteTarget(review); }}><MdDelete /></button>
@@ -110,9 +107,7 @@ const ReviewList = () => {
 
       {!loading && hasNextPage && <div className="reviews-load-more"><button className="btn btn--secondary" disabled={loadingMore} onClick={() => loadReviews({ append: true, pageCursor: nextCursor })}>{loadingMore ? "Loading…" : "Load more reviews"}</button></div>}
 
-      {selectedReview && <div className="review-modal-backdrop" role="presentation" onClick={() => setSelectedReview(null)}><div className="review-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><button className="review-modal__close" onClick={() => setSelectedReview(null)} aria-label="Close review"><MdClose /></button><h2>{selectedReview.productName}</h2><p className="review-modal__meta">Reviewed by {selectedReview.userName} on {new Date(selectedReview.createdAt).toLocaleString()}</p><Rating value={selectedReview.rating} precision={0.5} readOnly /><p className="review-modal__comment">{selectedReview.comment}</p><button className="btn btn--primary review-modal__delete" onClick={() => { setDeleteTarget(selectedReview); setSelectedReview(null); }}><MdDelete /> Delete review</button></div></div>}
-
-      {deleteTarget && <div className="review-modal-backdrop" role="presentation"><div className="review-modal review-confirm-modal" role="dialog" aria-modal="true"><h2>Delete this review?</h2><p>This will remove the review by <strong>{deleteTarget.userName}</strong> and recalculate <strong>{deleteTarget.productName}</strong>’s rating.</p><div className="review-modal__actions"><button className="btn btn--secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</button><button className="btn btn--danger" onClick={confirmDelete} disabled={deleting}>{deleting ? "Deleting…" : "Delete review"}</button></div></div></div>}
+      {deleteTarget && <div className="review-modal-backdrop" role="presentation" onClick={() => !deleting && setDeleteTarget(null)}><div className="review-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-review-title" onClick={(event) => event.stopPropagation()}><div className="review-confirm-modal__icon"><MdDelete /></div><h2 id="delete-review-title">Delete this review?</h2><p>This permanently removes the review by <strong>{deleteTarget.userName}</strong> and recalculates the rating for <strong>{deleteTarget.productName}</strong>.</p><div className="review-confirm-modal__actions"><button className="btn btn--secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>Keep review</button><button className="btn btn--danger" onClick={confirmDelete} disabled={deleting}>{deleting ? "Deleting…" : "Delete review"}</button></div></div></div>}
     </AdminLayout>
   );
 };
