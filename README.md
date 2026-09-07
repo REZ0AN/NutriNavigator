@@ -22,7 +22,7 @@ cd NutriNavigator
 
 ### 2. Backend environment
 
-Goto backend folder by `cd backend` Create `backend/.env`:
+Create `backend/.env` using the same variable names as [`backend/.env.example`](backend/.env.example):
 
 ```env
 # Server
@@ -40,20 +40,24 @@ COOKIE_EXPIRE=7
 # Frontend URL (CORS + email verification links)
 FRONT_END_URI=http://localhost:3000
 
+# Bcrypt
+SALT=10
+
 # Cloudinary
 CLOUDINARY_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
 # Email (SMTP)
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
+SMTP_PORT=587
 SMTP_MAIL=your@gmail.com
-SMTP_PASSWORD=your_app_password
+SMTP_PASS=your_app_password
 
 # Stripe
 STRIPE_API_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 
 # ML Server
 ML_SERVER_URL=http://127.0.0.1:5000
@@ -72,9 +76,8 @@ ML_SECRET=generate_a_random_secret_here
 ### 3. Install backend dependencies
 
 ```bash
-
+cd backend
 npm install
-
 ```
 
 ---
@@ -82,6 +85,7 @@ npm install
 ### 4. Verify environment
 
 ```bash
+cd backend
 npm run verify
 ```
 
