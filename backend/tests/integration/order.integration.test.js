@@ -23,6 +23,7 @@ const { default: Product } = await import("../../models/productModel.js");
 const { default: Order } = await import("../../models/orderModel.js");
 const { default: PaymentReconciliation } = await import("../../models/paymentReconciliationModel.js");
 const { getScopedIdempotencyKey } = await import("../../controllers/paymentController.js");
+const { expireStaleReconciliations } = await import("../../services/orderFinalizationService.js");
 
 describeDatabase("order and review API integration", () => {
   let mongo;
@@ -125,11 +126,62 @@ describeDatabase("order and review API integration", () => {
     expect(await Order.countDocuments({ "paymentinfo.id": paymentIntentId })).toBe(1);
   });
 
+  test("serializes simultaneous webhook finalization for one PaymentIntent", async () => {
+    const paymentIntentId = "pi_webhook-concurrent";
+    await PaymentReconciliation.create({
+      paymentIntentId,
+      user: owner._id,
+      shippinginfo,
+      orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }],
+      itemsprice: 100,
+      tax: 18,
+      shippingcost: 200,
+      totalprice: 318,
+      paymentStatus: "requires_payment_method",
+    });
+    retrievePaymentIntent.mockResolvedValue({ id: paymentIntentId, status: "succeeded", amount: 31800, currency: "inr" });
+    constructEvent.mockReturnValue({ type: "payment_intent.succeeded", data: { object: { id: paymentIntentId, status: "succeeded" } } });
+
+    const responses = await Promise.all([
+      request(app).post("/api/v1/payment/webhook").set("Stripe-Signature", "sig").send("{}"),
+      request(app).post("/api/v1/payment/webhook").set("Stripe-Signature", "sig").send("{}"),
+    ]);
+    expect(responses.map(({ statusCode }) => statusCode).sort()).toEqual([200, 200]);
+    expect(await Order.countDocuments({ "paymentinfo.id": paymentIntentId })).toBe(1);
+    expect((await Product.findById(product._id)).stock).toBe(4);
+    expect(await PaymentReconciliation.countDocuments({ paymentIntentId })).toBe(0);
+  });
+
   test("acknowledges a succeeded webhook without a matching reconciliation", async () => {
     constructEvent.mockReturnValue({ type: "payment_intent.succeeded", data: { object: { id: "pi_webhook-unmatched" } } });
     const response = await request(app).post("/api/v1/payment/webhook").set("Stripe-Signature", "sig").send("{}").expect(200);
     expect(response.body).toMatchObject({ success: true, received: true, recoverable: true });
     expect(await Order.countDocuments({ "paymentinfo.id": "pi_webhook-unmatched" })).toBe(0);
+  });
+
+  test("recovers a missing reconciliation from PaymentIntent metadata", async () => {
+    const paymentIntentId = "pi_snapshot-write-failure";
+    createPaymentIntent.mockResolvedValue({ id: paymentIntentId, client_secret: "secret_recovery", status: "requires_payment_method" });
+    const snapshotWrite = jest.spyOn(PaymentReconciliation, "findOneAndUpdate")
+      .mockRejectedValue(new Error("temporary database outage"));
+
+    const paymentResponse = await request(app).post("/api/v1/payment/process")
+      .set("Cookie", cookieFor(owner))
+      .send({ shippinginfo, orderitems: [{ product: product._id, quantity: 1 }] })
+      .expect(200);
+    expect(paymentResponse.body).toMatchObject({ success: true, reconciliationRequired: true, paymentIntentId });
+    const metadata = createPaymentIntent.mock.calls[0][0].metadata;
+    snapshotWrite.mockRestore();
+
+    retrievePaymentIntent.mockResolvedValue({ id: paymentIntentId, status: "succeeded", amount: 31800, currency: "inr" });
+    constructEvent.mockReturnValue({
+      type: "payment_intent.succeeded",
+      data: { object: { id: paymentIntentId, status: "succeeded", metadata } },
+    });
+    await request(app).post("/api/v1/payment/webhook").set("Stripe-Signature", "sig").send("{}").expect(200);
+
+    expect(await Order.countDocuments({ "paymentinfo.id": paymentIntentId })).toBe(1);
+    expect(await PaymentReconciliation.countDocuments({ paymentIntentId })).toBe(0);
   });
 
   test("marks failed payments and releases an applicable reservation", async () => {
@@ -152,6 +204,56 @@ describeDatabase("order and review API integration", () => {
     const updated = await PaymentReconciliation.findById(reconciliation._id);
     expect(updated).toMatchObject({ paymentStatus: "failed", status: "failed", stockReserved: false });
     expect((await Product.findById(product._id)).stock).toBe(5);
+  });
+
+  test("marks canceled payments terminal and releases an applicable reservation", async () => {
+    const paymentIntentId = "pi_webhook-canceled";
+    await Product.findByIdAndUpdate(product._id, { $inc: { stock: -1 }, $push: { stockReservations: { reservationId: paymentIntentId, quantity: 1 } } });
+    const reconciliation = await PaymentReconciliation.create({
+      paymentIntentId,
+      user: owner._id,
+      shippinginfo,
+      orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }],
+      itemsprice: 100,
+      tax: 18,
+      shippingcost: 200,
+      totalprice: 318,
+      paymentStatus: "requires_payment_method",
+      stockReserved: true,
+    });
+    constructEvent.mockReturnValue({ type: "payment_intent.canceled", data: { object: { id: paymentIntentId, status: "canceled" } } });
+
+    await request(app).post("/api/v1/payment/webhook").set("Stripe-Signature", "sig").send("{}").expect(200);
+
+    const updated = await PaymentReconciliation.findById(reconciliation._id);
+    expect(updated).toMatchObject({ paymentStatus: "canceled", status: "canceled", stockReserved: false });
+    expect((await Product.findById(product._id)).stock).toBe(5);
+    expect((await Product.findById(product._id)).stockReservations).toHaveLength(0);
+  });
+
+  test("expires stale pending reconciliations and releases their reservations", async () => {
+    const paymentIntentId = "pi_stale-reconciliation";
+    await Product.findByIdAndUpdate(product._id, { $inc: { stock: -1 }, $push: { stockReservations: { reservationId: paymentIntentId, quantity: 1 } } });
+    const reconciliation = await PaymentReconciliation.create({
+      paymentIntentId,
+      user: owner._id,
+      shippinginfo,
+      orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }],
+      itemsprice: 100,
+      tax: 18,
+      shippingcost: 200,
+      totalprice: 318,
+      paymentStatus: "requires_payment_method",
+      stockReserved: true,
+      createdAt: new Date("2026-09-01T00:00:00Z"),
+    });
+
+    await expect(expireStaleReconciliations({ now: new Date("2026-09-08T00:00:00Z"), maxAgeMs: 24 * 60 * 60 * 1000 })).resolves.toBe(1);
+
+    const updated = await PaymentReconciliation.findById(reconciliation._id);
+    expect(updated).toMatchObject({ paymentStatus: "expired", status: "expired", stockReserved: false });
+    expect((await Product.findById(product._id)).stock).toBe(5);
+    expect((await Product.findById(product._id)).stockReservations).toHaveLength(0);
   });
 
   test("allows only one simultaneous order to reserve the final unit", async () => {
@@ -251,6 +353,22 @@ describeDatabase("order and review API integration", () => {
     await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(200);
     expect((await Product.findById(product._id)).stock).toBe(5);
     await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(404);
+  });
+
+  test("rejects a stale deletion after the order has shipped and preserves inventory", async () => {
+    const order = await Order.create({ shippinginfo, orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }], user: owner._id, paymentinfo: { id: "pi_stale_delete", status: "succeeded" }, paidat: new Date(), stockReserved: true });
+    await Product.findByIdAndUpdate(product._id, { $inc: { stock: -1 }, $push: { stockReservations: { reservationId: "pi_stale_delete", quantity: 1 } } });
+
+    await request(app).put(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).send({ status: "shipped" }).expect(200);
+    await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(400);
+    expect(await Order.exists({ _id: order._id })).toBeTruthy();
+    expect((await Product.findById(product._id)).stock).toBe(4);
+  });
+
+  test("rejects status changes after deletion claims the order", async () => {
+    const order = await Order.create({ shippinginfo, orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }], user: owner._id, paymentinfo: { id: "pi_claimed_delete", status: "succeeded" }, paidat: new Date(), stockReserved: true, deletionInProgress: true });
+    await request(app).put(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).send({ status: "shipped" }).expect(409);
+    expect((await Order.findById(order._id)).orderstatus).toBe("processing");
   });
 
   test.each(["shipped", "delivered"])("rejects deletion of a %s order without restoring inventory", async (orderstatus) => {

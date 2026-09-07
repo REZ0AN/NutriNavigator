@@ -101,20 +101,26 @@ export const updateOrderStatus = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler(`Invalid order status transition from ${order.orderstatus} to ${req.body.status}.`, 400));
     }
 
-    order.orderstatus = req.body.status;
+    const update = { $set: { orderstatus: req.body.status } };
+    if (req.body.status === "delivered") update.$set.deliveredat = Date.now();
 
-    if (req.body.status === "delivered") {
-        order.deliveredat = Date.now();
+    // Re-check the observed status and deletion claim atomically. If deletion
+    // claimed the order after the read above, this update must not win.
+    const updatedOrder = await Order.findOneAndUpdate(
+        { _id: req.params.id, orderstatus: order.orderstatus, deletionInProgress: { $ne: true } },
+        update,
+        { new: true, runValidators: false },
+    );
+    if (!updatedOrder) {
+        return next(new ErrorHandler("The order is being deleted or has changed; retry the operation.", 409));
     }
 
-    await order.save({ validateBeforeSave: false });
-
-    res.status(200).json({ success: true, order });
+    res.status(200).json({ success: true, order: updatedOrder });
 });
 
 // ─── Delete order (Admin) ─────────────────────────────────────────────────────
 export const deleteOrder = catchAsyncErrors(async (req, res, next) => {
-    const order = await Order.findById(req.params.id);  // Fixed: was find() not findById()
+    const order = await Order.findById(req.params.id);
     if (!order) {
         return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
     }
@@ -122,16 +128,29 @@ export const deleteOrder = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler("Only processing orders can be deleted; shipped and delivered orders cannot be fulfilled by deletion.", 400));
     }
 
-    // Release each marker atomically first. The order remains reserved if any
-    // item fails, so a retry can finish the incomplete release safely.
-    await releaseOrderStock(order);
+    // Claim before touching Product. This is the concurrency boundary: a
+    // status update must observe deletionInProgress and fail, while a stale
+    // delete request cannot claim an order that has already shipped.
     const claimed = await Order.findOneAndUpdate(
-        { _id: req.params.id, stockReserved: true },
-        { $set: { stockReserved: false } },
-        { new: true }
+        { _id: req.params.id, orderstatus: "processing", deletionInProgress: { $ne: true } },
+        { $set: { deletionInProgress: true } },
+        { new: true, runValidators: false },
     );
-    if (!claimed) return next(new ErrorHandler(`Order not found with id: ${req.params.id}`, 404));
-    await Order.deleteOne({ _id: req.params.id });
+    if (!claimed) return next(new ErrorHandler("The order is being deleted or has changed; retry the operation.", 409));
+
+    try {
+        // Release each marker atomically. The claim remains until all product
+        // updates finish, so a failed release can be retried safely.
+        await releaseOrderStock(claimed);
+        const deleted = await Order.deleteOne({ _id: req.params.id, orderstatus: "processing", deletionInProgress: true });
+        if (deleted.deletedCount !== 1) throw new ErrorHandler("The order changed while it was being deleted.", 409);
+    } catch (error) {
+        await Order.updateOne(
+            { _id: req.params.id, deletionInProgress: true },
+            { $set: { deletionInProgress: false } },
+        );
+        return next(error);
+    }
 
     res.status(200).json({ success: true, message: "Order deleted successfully." });
 });
