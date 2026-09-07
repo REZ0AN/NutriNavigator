@@ -4,11 +4,12 @@ const orderFindOne = jest.fn();
 const orderFindById = jest.fn();
 const orderDeleteOne = jest.fn();
 const orderFindOneAndUpdate = jest.fn();
+const orderUpdateOne = jest.fn();
 const productUpdateOne = jest.fn();
 const productFindOne = jest.fn();
 
 jest.unstable_mockModule("../../models/orderModel.js", () => ({
-  default: { findOne: orderFindOne, findById: orderFindById, findOneAndUpdate: orderFindOneAndUpdate, deleteOne: orderDeleteOne },
+  default: { findOne: orderFindOne, findById: orderFindById, findOneAndUpdate: orderFindOneAndUpdate, updateOne: orderUpdateOne, deleteOne: orderDeleteOne },
 }));
 jest.unstable_mockModule("../../models/productModel.js", () => ({
   default: { updateOne: productUpdateOne, findOne: productFindOne },
@@ -38,23 +39,23 @@ describe("order controller authorization and transitions", () => {
   });
 
   test("allows only processing-to-shipped and shipped-to-delivered transitions", async () => {
-    const save = jest.fn().mockResolvedValue(undefined);
-    const order = { orderstatus: "processing", stockReserved: true, save };
+    const order = { orderstatus: "processing", stockReserved: true };
     orderFindById.mockResolvedValue(order);
+    orderFindOneAndUpdate.mockResolvedValue({ ...order, orderstatus: "shipped" });
     const valid = await invoke(updateOrderStatus, { params: { id: "order-1" }, body: { status: "shipped" } });
     expect(valid.res.status).toHaveBeenCalledWith(200);
-    expect(order.orderstatus).toBe("shipped");
+    expect(valid.res.json).toHaveBeenCalledWith(expect.objectContaining({ order: expect.objectContaining({ orderstatus: "shipped" }) }));
 
     order.orderstatus = "processing";
     const invalid = await invoke(updateOrderStatus, { params: { id: "order-1" }, body: { status: "delivered" } });
     expect(invalid.next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
-    expect(save).toHaveBeenCalledTimes(1);
+    expect(orderFindOneAndUpdate).toHaveBeenCalledTimes(1);
   });
 
   test("restores reserved stock when an order is deleted", async () => {
     orderFindById.mockResolvedValue({ _id: "order-1", orderstatus: "processing", stockReserved: true, paymentinfo: { id: "pi-1" }, orderitems: [{ product: "p1", quantity: 2 }] });
     productUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    orderFindOneAndUpdate.mockResolvedValue({ _id: "order-1", stockReserved: false, orderitems: [{ product: "p1", quantity: 2 }] });
+    orderFindOneAndUpdate.mockResolvedValue({ _id: "order-1", deletionInProgress: true, paymentinfo: { id: "pi-1" }, orderitems: [{ product: "p1", quantity: 2 }] });
     orderDeleteOne.mockResolvedValue({ deletedCount: 1 });
     await invoke(deleteOrder, { params: { id: "order-1" } });
     expect(productUpdateOne).toHaveBeenCalledWith(
@@ -76,7 +77,7 @@ describe("order controller authorization and transitions", () => {
     orderFindById
       .mockResolvedValueOnce({ _id: "order-1", orderstatus: "processing", stockReserved: true, orderitems: [{ product: "p1", quantity: 2 }] })
       .mockResolvedValueOnce(null);
-    orderFindOneAndUpdate.mockResolvedValueOnce({ _id: "order-1", stockReserved: false, orderitems: [{ product: "p1", quantity: 2 }] });
+    orderFindOneAndUpdate.mockResolvedValueOnce({ _id: "order-1", deletionInProgress: true, orderitems: [{ product: "p1", quantity: 2 }] });
     orderDeleteOne.mockResolvedValue({ deletedCount: 1 });
 
     await invoke(deleteOrder, { params: { id: "order-1" } });
@@ -92,18 +93,46 @@ describe("order controller authorization and transitions", () => {
       .mockRejectedValueOnce(new Error("database unavailable"))
       .mockResolvedValueOnce({ modifiedCount: 1 });
     productFindOne.mockResolvedValue({ stockReservations: [{ reservationId: "pi-retry", quantity: 2 }] });
-    orderFindOneAndUpdate.mockResolvedValue({ _id: "order-retry", stockReserved: false });
+    orderFindOneAndUpdate.mockResolvedValue({ ...order, deletionInProgress: true });
     orderDeleteOne.mockResolvedValue({ deletedCount: 1 });
 
     const failed = await invoke(deleteOrder, { params: { id: "order-retry" } });
     expect(failed.next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 503 }));
-    expect(orderFindOneAndUpdate).not.toHaveBeenCalled();
+    expect(orderFindOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(orderDeleteOne).not.toHaveBeenCalled();
 
     const retry = await invoke(deleteOrder, { params: { id: "order-retry" } });
     expect(retry.res.status).toHaveBeenCalledWith(200);
     expect(productUpdateOne).toHaveBeenCalledTimes(2);
-    expect(orderFindOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(orderFindOneAndUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  test("does not update status when deletion wins the atomic claim", async () => {
+    orderFindById.mockResolvedValue({ _id: "order-race", orderstatus: "processing", stockReserved: true });
+    orderFindOneAndUpdate.mockResolvedValueOnce(null);
+    const result = await invoke(updateOrderStatus, { params: { id: "order-race" }, body: { status: "shipped" } });
+    expect(result.next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 409 }));
+    expect(orderFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "order-race", orderstatus: "processing", deletionInProgress: { $ne: true } },
+      expect.objectContaining({ $set: expect.objectContaining({ orderstatus: "shipped" }) }),
+      { new: true, runValidators: false },
+    );
+  });
+
+  test("claims deletion before releasing product stock", async () => {
+    const order = { _id: "order-ordering", orderstatus: "processing", stockReserved: true, paymentinfo: { id: "pi-ordering" }, orderitems: [{ product: "p1", quantity: 1 }] };
+    const sequence = [];
+    orderFindById.mockResolvedValue(order);
+    orderFindOneAndUpdate.mockImplementation(async (...args) => { sequence.push("claim"); return { ...order, deletionInProgress: true }; });
+    productUpdateOne.mockImplementation(async () => { sequence.push("release"); return { modifiedCount: 1 }; });
+    orderDeleteOne.mockImplementation(async () => { sequence.push("delete"); return { deletedCount: 1 }; });
+    await invoke(deleteOrder, { params: { id: "order-ordering" } });
+    expect(sequence).toEqual(["claim", "release", "delete"]);
+    expect(orderFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "order-ordering", orderstatus: "processing", deletionInProgress: { $ne: true } },
+      { $set: { deletionInProgress: true } },
+      { new: true, runValidators: false },
+    );
   });
 
 });

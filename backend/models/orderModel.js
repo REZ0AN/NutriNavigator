@@ -37,6 +37,8 @@ const orderSchema = new mongoose.Schema(
         totalprice: { type: Number, default: 0 },
         // Stock is reserved exactly once when the order is created.
         stockReserved: { type: Boolean, default: false },
+        // Prevents an admin status update from racing with stock release and deletion.
+        deletionInProgress: { type: Boolean, default: false },
         orderstatus: {
             type: String,
             required: true,

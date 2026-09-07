@@ -7,9 +7,21 @@ import mongoose from "mongoose";
 import PaymentReconciliation from "../models/paymentReconciliationModel.js";
 import Order from "../models/orderModel.js";
 import { getStripe, getScopedIdempotencyKey, verifyPaymentIntent } from "../services/stripeService.js";
-import { createReconciliationSnapshot, finalizeReconciliation, releaseReservationSnapshot } from "../services/orderFinalizationService.js";
+import { buildReconciliationRecoveryMetadata, createReconciliationSnapshot, finalizeReconciliation, recoverReconciliationSnapshot, terminalizeReconciliation } from "../services/orderFinalizationService.js";
 
 const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const persistReconciliationSnapshot = async (snapshot) => {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            return await createReconciliationSnapshot(snapshot);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError;
+};
 
 export { getScopedIdempotencyKey, verifyPaymentIntent } from "../services/stripeService.js";
 
@@ -71,18 +83,30 @@ export const processPayment = catchAsyncErrors(async (req, res, next) => {
     const myPayment = await getStripe().paymentIntents.create({
         amount: pricing.amount,
         currency: pricing.currency,
-        metadata: { company: "NutriNavigator", userId: req.user.id.toString() },
+        metadata: {
+            company: "NutriNavigator",
+            userId: req.user.id.toString(),
+            ...buildReconciliationRecoveryMetadata({ userId: req.user.id, shippinginfo, pricing }),
+        },
     }, scopedIdempotencyKey ? { idempotencyKey: scopedIdempotencyKey } : undefined);
-    await createReconciliationSnapshot({
-        paymentIntentId: myPayment.id,
-        userId: req.user.id,
-        shippinginfo,
-        pricing,
-        paymentStatus: myPayment.status || "requires_payment_method",
-    });
+    let reconciliationRequired = false;
+    try {
+        await persistReconciliationSnapshot({
+            paymentIntentId: myPayment.id,
+            userId: req.user.id,
+            shippinginfo,
+            pricing,
+            paymentStatus: myPayment.status || "requires_payment_method",
+        });
+    } catch {
+        // PaymentIntent metadata is the durable fallback. The webhook can
+        // recreate the exact snapshot after MongoDB becomes available again.
+        reconciliationRequired = true;
+    }
     res.status(200).json({
         success: true,
         client_secret: myPayment.client_secret,
+        ...(reconciliationRequired && { reconciliationRequired: true, paymentIntentId: myPayment.id }),
         pricing: {
             itemsprice: pricing.itemsprice,
             tax: pricing.tax,
@@ -120,20 +144,19 @@ export const handleStripeWebhook = catchAsyncErrors(async (req, res) => {
     const paymentIntent = event.data?.object;
     if (!paymentIntent?.id) return res.status(200).json({ success: true, received: true });
 
-    const reconciliation = await PaymentReconciliation.findOne({ paymentIntentId: paymentIntent.id });
+    let reconciliation = await PaymentReconciliation.findOne({ paymentIntentId: paymentIntent.id });
     const existingOrder = await Order.findOne({ "paymentinfo.id": paymentIntent.id });
 
     if (event.type === "payment_intent.succeeded") {
+        if (!reconciliation && !existingOrder) {
+            reconciliation = await recoverReconciliationSnapshot(paymentIntent);
+        }
         if (!reconciliation) return res.status(200).json({ success: true, received: true, recoverable: !existingOrder });
         await finalizeReconciliation(reconciliation);
-    } else if (event.type === "payment_intent.payment_failed" && reconciliation) {
-        // Release by marker even if a crash occurred before stockReserved was
-        // persisted; the marker is the authoritative reservation state.
-        await releaseReservationSnapshot(reconciliation);
-        await PaymentReconciliation.updateOne(
-            { _id: reconciliation._id },
-            { $set: { paymentStatus: "failed", status: "failed", stockReserved: false } },
-        );
+    } else if (reconciliation && event.type === "payment_intent.payment_failed") {
+        await terminalizeReconciliation(reconciliation, { status: "failed", paymentStatus: "failed" });
+    } else if (reconciliation && event.type === "payment_intent.canceled") {
+        await terminalizeReconciliation(reconciliation, { status: "canceled", paymentStatus: "canceled" });
     }
 
     return res.status(200).json({ success: true, received: true });
