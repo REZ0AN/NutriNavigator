@@ -129,7 +129,7 @@ admin routes send signed-in users without an admin role to `/error/403`.
 | Goal | Entry point and flow | Result |
 | --- | --- | --- |
 | Discover products | Start on `/`, browse featured products, open `/products`, or search at `/search`. On the catalog page, change category, price, rating, or page. | Open a product at `/product/:id` to see images, description, stock, and reviews. |
-| Get food recommendations | Open `/dietrecommend`, enter personal details and health conditions, then submit. | See food names and reasons. Results matched to a catalog product link to its detail page; unmatched results say they are unavailable to buy here. |
+| Get food recommendations | Sign in, open `/dietrecommend`, enter personal details and health conditions, then submit. | See food names and reasons. Results matched to a catalog product link to its detail page; unmatched results say they are unavailable to buy here. |
 | Create or access an account | Use the Sign Up or Sign In tabs at `/login`. Registration sends a verification email; verify through `/verify-email/:token` before signing in. | Access profile, checkout, and orders. Forgot password and resend verification links provide recovery paths. |
 | Manage profile | From `/profile`, open `/profile/update` or `/password/update`. | Save account details or change the password, then return to the profile. |
 | Review a product | On `/product/:id`, choose **Write a Review**, set a rating and comment, then submit. | The product review list reloads after a successful submission; the server decides whether the write is allowed. |

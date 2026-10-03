@@ -114,7 +114,6 @@ function AppContent() {
         <Route path="/product/:id"           element={<ProductDetails />} />
         <Route path="/search"                element={<Search />} />
         <Route path="/login"                 element={<Login />} />
-        <Route path="/dietrecommend"         element={<DietRecommend />} />
         <Route path="/password/forgot"       element={<ForgotPassword />} />
         <Route path="/password/reset/:token" element={<ResetPassword />} />
         <Route path="/cart"                  element={<Cart />} />
@@ -127,6 +126,7 @@ function AppContent() {
 
         {/* ── Protected ── */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/dietrecommend"    element={<DietRecommend />} />
           <Route path="/profile"         element={<Profile />} />
           <Route path="/profile/update"  element={<UpdateProfile />} />
           <Route path="/password/update" element={<UpdatePassword />} />
