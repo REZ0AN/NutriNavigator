@@ -44,8 +44,8 @@ selects the storefront or admin shell by route.
 
 | Element | Current treatment |
 | --- | --- |
-| Brand | Migrated storefront areas use forest green (`brand.900`, `#173525`) and softer leaf tones. Legacy pages retain their existing forest and mint tokens. |
-| Surfaces | Migrated storefront areas use cream (`#F8F6F0`) and warm white (`#FFFEFA`). Legacy pages retain their pale green backgrounds and cards. |
+| Brand | Forest green (`brand.900`, `#173525`) anchors navigation and primary actions; leaf and sage tones add restrained accents. Legacy CSS tokens now match the Tailwind palette. |
+| Surfaces | Storefront pages use warm cream (`#F8F6F0`) and warm white (`#FFFEFA`). Admin pages use a separate neutral canvas (`#F7F9F7`). |
 | Text | Near-black body text with softer gray for supporting copy; green headings and prices. |
 | Type | DM Serif Display for headings; Outfit for body text, labels, controls, and most admin headings. Both load from Google Fonts, with local fallbacks. |
 | Spacing and shape | An 8-point-based spacing token scale, rounded cards (typically 20–28px), pill buttons and badges, and light shadows. |
@@ -53,17 +53,19 @@ selects the storefront or admin shell by route.
 
 Migrated controls use `src/components/ui/Button.jsx` variants. Legacy screens
 still use the global `.btn` variants from `reset.css`. The two systems coexist
-until each screen is migrated and checked.
+until each screen is migrated and checked. Legacy primary buttons now use forest
+green with white text. Shared CSS gives keyboard focus a visible outline and
+honors reduced-motion preferences.
 
 ### Page shells
 
 - **Storefront:** A 68px sticky forest header contains the logo, Home,
   Products, and Get Dietary links, plus search, cart, and account actions.
-  The cart count appears as a mint badge. At 768px and below, the navigation
+  The cart count appears as a sage badge. At 768px and below, the navigation
   links move into a menu opened by the header button. Storefront pages end
   with a warm white footer: brand copy, Explore and Account links, social
   links, and a copyright row. The header and footer are omitted on `/admin/*`.
-- **Admin:** `AdminLayout` uses a 248px forest sidebar and a pale green main
+- **Admin:** `AdminLayout` uses a 248px forest sidebar and a neutral main
   area. The sidebar stays at the top of the viewport, fills its height, and
   scrolls vertically. The main area has shared white table and form-card
   styles; wide tables scroll horizontally. At 768px and below, main padding

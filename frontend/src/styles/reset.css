@@ -16,6 +16,7 @@ a { color: inherit; text-decoration: none; }
 input, textarea, select { font-family: inherit; font-size: inherit; }
 ul, ol { list-style: none; }
 h1,h2,h3,h4,h5,h6 { font-family: var(--ff-display); line-height: 1.2; }
+:focus-visible { outline: 2px solid var(--c-forest); outline-offset: 3px; }
 
 /* ── Global utilities ── */
 .greenColor { color: var(--c-green)  !important; font-weight: var(--fw-semi); }
@@ -38,13 +39,14 @@ h1,h2,h3,h4,h5,h6 { font-family: var(--ff-display); line-height: 1.2; }
   transition: all var(--ease-base);
   letter-spacing: 0.02em;
   white-space: nowrap;
+  min-height: 44px;
 }
 .btn--primary {
-  background: var(--c-lime);
-  color: var(--c-forest);
+  background: var(--c-forest);
+  color: var(--c-white);
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--c-lime-dark);
+  background: var(--c-forest-hover);
   transform: translateY(-1px);
   box-shadow: var(--sh-md);
 }
@@ -81,5 +83,10 @@ h1,h2,h3,h4,h5,h6 { font-family: var(--ff-display); line-height: 1.2; }
 }
 .btn--danger:hover:not(:disabled) { background: #a93226; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-.btn--sm { padding: 0.4rem 1rem; font-size: var(--fs-xs); }
+.btn--sm { min-height: 36px; padding: 0.4rem 1rem; font-size: var(--fs-xs); }
 .btn--lg { padding: 0.8rem 2rem; font-size: var(--fs-base); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

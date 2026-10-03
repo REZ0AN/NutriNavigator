@@ -11,7 +11,7 @@
 
 .admin-main {
   flex: 1;
-  background: var(--c-cream);
+  background: var(--c-admin-canvas);
   padding: var(--sp-8);
   overflow-x: auto;
   min-width: 0;
@@ -76,7 +76,7 @@
   border: 1.5px solid var(--c-stone);
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
-  background: var(--c-cream);
+  background: var(--c-admin-canvas);
   transition: border-color var(--ease-fast), background var(--ease-fast);
 }
 .admin-input-wrap:focus-within { border-color: var(--c-forest); background: white; }

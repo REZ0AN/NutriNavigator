@@ -2,27 +2,28 @@
 
 :root {
 /* ── Brand ── */
-  --c-forest:        #0a4a2d;   /* medium sage green — main brand */
-  --c-forest-mid:    #52B788;   /* fresh mint — hover/light states */
-  --c-forest-hover:  #1B4332;   /* deep green — pressed/active */
-  --c-lime:          #95D5B2;   /* soft mint — accent */
-  --c-lime-dark:     #52B788;   /* medium mint — accent hover */
-  --c-lime-light:    #B7E4C7;   /* pale mint — muted accent */
-  --c-lime-wash:     #D8F3DC;   /* whisper green — backgrounds */
+  --c-forest:        #173525;   /* brand green shared with Tailwind */
+  --c-forest-mid:    #52785A;   /* leaf green */
+  --c-forest-hover:  #10291C;   /* pressed brand green */
+  --c-lime:          #A8C2A3;   /* sage accent */
+  --c-lime-dark:     #52785A;
+  --c-lime-light:    #E5EEE2;
+  --c-lime-wash:     #F3F7F2;
 
   /* ── Neutrals ── */
-  --c-cream:         #F0F7F4;   /* green-tinted white — page bg */
-  --c-cream-dark:    #E0EFE8;   /* slightly deeper — hover bg */
+  --c-cream:         #F8F6F0;   /* warm page background */
+  --c-cream-dark:    #EFEEE7;
   --c-white:         #FFFFFF;
-  --c-off-white:     #F6FBF8;   /* card surfaces */
-  --c-stone:         #C8DDD4;   /* green-tinted border */
-  --c-stone-light:   #DCF0E6;   /* subtle dividers */
+  --c-off-white:     #FFFEFA;   /* warm card surface */
+  --c-stone:         #C9D2C8;
+  --c-stone-light:   #E5EAE6;
+  --c-admin-canvas:  #F7F9F7;   /* neutral admin background */
 
   /* ── Text ── */
-  --c-ink:           #1A1A1A;
-  --c-ink-mid:       #4A4A4A;
-  --c-ink-soft:      #737373;
-  --c-ink-faint:     #A0A0A0;
+  --c-ink:           #242923;
+  --c-ink-mid:       #54544D;
+  --c-ink-soft:      #686E67;
+  --c-ink-faint:     #737873;
 
   /* ── Semantic ── */
   --c-green:         #1E7A4A;
@@ -69,11 +70,11 @@
   --r-full: 9999px;
 
   /* ── Shadows ── */
-  --sh-xs: 0 1px 3px rgba(0,0,0,0.06);
-  --sh-sm: 0 2px 8px rgba(0,0,0,0.08);
-  --sh-md: 0 4px 20px rgba(0,0,0,0.10);
-  --sh-lg: 0 8px 40px rgba(0,0,0,0.12);
-  --sh-xl: 0 20px 60px rgba(0,0,0,0.14);
+  --sh-xs: 0 1px 3px rgba(23,53,37,0.04);
+  --sh-sm: 0 2px 8px rgba(23,53,37,0.06);
+  --sh-md: 0 4px 20px rgba(23,53,37,0.08);
+  --sh-lg: 0 8px 36px rgba(23,53,37,0.10);
+  --sh-xl: 0 20px 56px rgba(23,53,37,0.12);
 
   /* ── Motion ── */
   --ease-fast: 150ms ease;
