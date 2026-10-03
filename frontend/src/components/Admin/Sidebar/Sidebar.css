@@ -10,6 +10,11 @@
   overflow-y: auto;
   align-self: flex-start;
 }
+.admin-sidebar__close { display: none; }
+@media (max-width: 768px) {
+  .admin-sidebar__close { display: grid; place-items: center; position: absolute; top: 12px; right: 10px; width: 36px; height: 36px; border: 0; border-radius: var(--r-md); background: rgba(255,255,255,0.1); color: white; font-size: 1.3rem; }
+  .admin-sidebar__close:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+}
 
 .admin-sidebar__brand {
   display: flex;

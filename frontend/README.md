@@ -67,7 +67,7 @@ until each screen is migrated and checked.
   area. The sidebar stays at the top of the viewport, fills its height, and
   scrolls vertically. The main area has shared white table and form-card
   styles; wide tables scroll horizontally. At 768px and below, main padding
-  shrinks. The sidebar does not currently switch to a mobile drawer.
+  shrinks and the sidebar becomes a menu drawer.
 - **Content width:** Most storefront content is centered within the
   `--content-max` value of 1200px, with page-specific horizontal padding.
 
@@ -109,12 +109,12 @@ scrolling for data tables.
 
 ### Redesign progress
 
-The home page, shared product card, storefront header, and footer now use
-Tailwind utilities. `Button` and `Container` are the first shared presentation
-components. Their former CSS files remain in the repository for comparison
-until the migrated screens receive visual checks at desktop, tablet, and mobile
-sizes. Catalog, product detail, checkout, account, orders, recommendation, and
-admin screens still use their existing CSS and behavior.
+The home page, shared product card, storefront header, footer, and admin
+dashboard now use Tailwind utilities. `Button`, `Container`, `MetricCard`,
+`AnalyticsPanel`, and `AnalyticsToolbar` are shared presentation components.
+Former CSS files remain in the repository for comparison until the migrated
+screens receive visual checks at desktop, tablet, and mobile sizes. Other admin
+pages and the remaining storefront flows still use their existing CSS.
 
 ## Use cases and user flows
 
@@ -157,7 +157,7 @@ admin routes send signed-in users without an admin role to `/error/403`.
 
 | Goal | Entry point and flow | Result |
 | --- | --- | --- |
-| Monitor the store | Open `/admin/dashboard`. Inspect all-time summary cards, a selected-range order-value and order-count summary, order-value and status charts, recent orders, stock levels, and any out-of-stock alert. Select a UTC date preset or custom range, group the line chart daily, weekly, or monthly, and use **Export Delivered** for the selected range. | A dashboard view of current activity and an order export when requested. |
+| Monitor the store | Open `/admin/dashboard`. Use the sticky UTC date toolbar to select today, the previous 7 or 30 days, this year, or a custom range. Review compact order-value, order-count, average-order-value, and all-time customer-account KPIs; group the area chart daily, weekly, or monthly; inspect status, recent orders, and lowest stock. Use **Export delivered** for the selected range. | A dashboard view of current activity and an order export when requested. |
 | Manage catalog | Open `/admin/products`. Create a product at `/admin/product`, or open `/admin/product/:id` to edit its name, description, price, category, stock, and images. Delete from the list. | Product changes appear in the catalog after a successful server response. |
 | Process orders | Open `/admin/orders`, move between list pages, and select an order at `/admin/order/:id`. Review payment, shipping, and items before updating status. | The UI offers `processing → shipped → delivered`, one step at a time. Delivered orders have no further status form. The list also exposes a delete action. |
 | Manage users | Open `/admin/users`, then `/admin/user/:id` to edit name, email, or role; the list also exposes deletion. | Updated account details or role are saved after the server accepts the request. |
@@ -177,6 +177,10 @@ own authorization.
 Dashboard date filters use UTC calendar days and include both endpoints. The
 selected-range order value sums the total price of all orders created in that
 range, regardless of payment or delivery status. It is an order-value measure,
-not settled revenue. The all-time cards are labeled separately. The export
-contains delivered orders selected by delivery date, so its contents can differ
-from the created-order charts for the same dates.
+not settled revenue. Average order value divides that amount by the number of
+orders in the selected period. Customer accounts, recent orders, and inventory
+are all-time views and are labeled separately. The export contains delivered
+orders selected by delivery date, so its contents can differ from the
+created-order charts for the same dates. Top-selling products, category sales,
+customer retention, and growth percentages are absent because the current
+dashboard API does not supply those aggregates.

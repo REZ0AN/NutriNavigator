@@ -1,4 +1,12 @@
-import { buildRevenueData, buildRevenueDataFromMetrics, groupOrderValueData, isRangeTooLarge } from "./Dashboard";
+import { buildRevenueData, buildRevenueDataFromMetrics, getPresetRange, groupOrderValueData, isRangeTooLarge } from "./Dashboard";
+
+test("dashboard rolling presets use inclusive UTC calendar days", () => {
+  const now = new Date("2026-10-03T00:30:00.000Z");
+  expect(getPresetRange("today", now)).toEqual({ from: "2026-10-03", to: "2026-10-03" });
+  expect(getPresetRange("sevenDays", now)).toEqual({ from: "2026-09-27", to: "2026-10-03" });
+  expect(getPresetRange("thirtyDays", now)).toEqual({ from: "2026-09-04", to: "2026-10-03" });
+  expect(getPresetRange("year", now)).toEqual({ from: "2026-01-01", to: "2026-10-03" });
+});
 
 test("dashboard rejects ranges longer than one year", () => {
   expect(isRangeTooLarge({ from: "2026-01-01", to: "2027-01-02" })).toBe(true);
