@@ -33,7 +33,7 @@ cd frontend
 npm test -- --watchAll=false
 ```
 
-The normal tests do not call MongoDB, Stripe, Cloudinary, SMTP, or the ML service. Stripe and browser APIs are mocked; integration tests use an isolated in-memory database.
+The normal tests do not call MongoDB, Stripe, Cloudinary, SMTP, or the recommendation service. Stripe and browser APIs are mocked; integration tests use an isolated in-memory database.
 
 ## What each suite checks
 

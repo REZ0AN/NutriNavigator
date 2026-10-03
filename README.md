@@ -1,4 +1,14 @@
+# NutriNavigator
+
+This repository runs three services: `backend/` (Express API), `frontend/`
+(React application), and `services/recommendation/` (FastAPI and Gemini).
+The Compose service is still named `recommendation_service`; that name is
+used for container DNS and is separate from its folder path. MongoDB is
+external to this Compose stack.
+
 ## Setup Guide
+
+Run each command block from the repository root unless it says otherwise.
 
 ### Prerequisites
 
@@ -26,7 +36,7 @@ Create `backend/.env` using the same variable names as [`backend/.env.example`](
 
 ```env
 # Server
-PORT=4080
+PORT=8080
 NODE_ENV=development
 
 # Database
@@ -96,26 +106,17 @@ Checks all required env vars, MongoDB connection, Cloudinary ping, and Stripe ac
 ### 5. Recommendation service
 
 ```bash
-cd recommendation_service
-
-# Create and activate virtual environment
+cd services/recommendation
 python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-
-# Install runtime dependencies
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Create recommendation_service/.env
-PORT=5000
-APP_ENV=development
-GEMINI_API_KEY=your-google-ai-studio-api-key
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-GEMINI_MODEL=gemma-4b-it
-RECOMMENDATION_SERVICE_SECRET=same_value_as_backend_RECOMMENDATION_SERVICE_SECRET
-
-# Start
-uvicorn server:app --host 0.0.0.0 --port 5000
+cp .env.example .env
 ```
+
+Set `GEMINI_API_KEY` in `services/recommendation/.env` and set
+`RECOMMENDATION_SERVICE_SECRET` to the same value as in `backend/.env`.
+The backend alone calls this service; the frontend calls the backend route.
+Start Uvicorn after configuring the environment, as shown in step 7.
 
 ---
 
@@ -136,12 +137,12 @@ It calls the authenticated backend recommendation route.
 **Terminal 1 — Backend**
 ```bash
 cd backend && npm run dev
-# → http://localhost:4080
+# → http://localhost:8080
 ```
 
 **Terminal 2 — Recommendation service**
 ```bash
-cd recommendation_service && source .venv/bin/activate && uvicorn server:app --host 0.0.0.0 --port 5000
+cd services/recommendation && source .venv/bin/activate && uvicorn server:app --host 0.0.0.0 --port 5000
 # → http://localhost:5000
 ```
 
@@ -155,29 +156,39 @@ cd frontend && npm start
 
 ### 8. Run with Docker Compose
 
-Copy the root environment template and fill in the required secrets:
+Create the root Compose environment file and the three service environment
+files. The root `.env` contains only Compose interpolation values; application
+secrets stay in the service-specific files:
 
 ```bash
-cp .env.example .env
-docker compose up --build
+make init-env
+# Edit backend/.env and services/recommendation/.env with real secrets.
+make config
+make up-d
 ```
 
-The Compose stack starts MongoDB, the recommendation service, the backend, and
-the Nginx-served frontend. The frontend is available at
-`http://localhost:3000` and the backend at `http://localhost:4080`. Compose
-reads values dynamically from the root `.env`; do not commit that file.
+The current Compose stack contains three services:
 
-To stop the stack while preserving MongoDB data:
+| Service | Container address | Host address | Purpose |
+| --- | --- | --- | --- |
+| `recommendation_service` | `http://recommendation_service:5000` | internal only | FastAPI + Gemini recommendations |
+| `backend` | `http://backend:8080` | `http://localhost:4080` | Express API, MongoDB, Stripe, auth |
+| `frontend` | Nginx on port `80` | `http://localhost:3000` | React application |
+
+The backend connects to the recommendation service through Compose DNS. The
+frontend Nginx proxy connects to `backend:8080`. MongoDB is not managed by this
+Compose file; set `MONGODB_URI` in `backend/.env` to Atlas or another reachable
+MongoDB instance. Keep `PORT=8080` in `backend/.env` for the Compose port
+mapping and health check.
+
+To stop the stack:
 
 ```bash
 docker compose down
 ```
 
-To explicitly remove the local MongoDB volume as well:
-
-```bash
-docker compose down -v
-```
+Equivalent Makefile commands are available with `make ps`, `make logs`,
+`make backend-logs`, `make recommendation-logs`, and `make frontend-logs`.
 
 ---
 
@@ -210,4 +221,11 @@ curl -X POST http://127.0.0.1:5000/recommend \
 
 ### API Documentation
 
-Swagger UI available at `http://localhost:4080/api/docs` in development.
+Swagger UI available at `http://localhost:8080/api/docs` in local development,
+or `http://localhost:4080/api/docs` through the default Docker host mapping.
+
+More service-specific setup and API notes:
+
+- [Backend README](backend/README.md)
+- [Frontend README](frontend/README.md)
+- [Recommendation service README](services/recommendation/README.md)
