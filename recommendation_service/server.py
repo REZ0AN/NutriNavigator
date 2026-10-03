@@ -37,10 +37,7 @@ class FoodRecommendation(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
-    recommendations: list[FoodRecommendation] = Field(
-        min_length=1,
-        max_length=MAX_RECOMMENDATIONS,
-    )
+    recommendations: list[FoodRecommendation] = Field(max_length=MAX_RECOMMENDATIONS)
 
 
 class ProfileRequest(BaseModel):

@@ -37,6 +37,18 @@ class RecommendationServiceTest(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     @patch("server.SERVICE_SECRET", "test-secret")
+    @patch("server._build_structured_model")
+    def test_empty_recommendations_are_a_successful_response(self, build_model):
+        build_model.return_value.invoke.return_value = RecommendationResponse(recommendations=[])
+        response = self.client.post(
+            "/recommend",
+            headers=self.headers,
+            json={"age": 28, "height": 1.72, "weight": 68, "gender": 1, "diseases": []},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"recommendations": []})
+
+    @patch("server.SERVICE_SECRET", "test-secret")
     def test_invalid_profile_is_rejected_before_provider_call(self):
         with patch("server._build_structured_model") as build_model:
             response = self.client.post(
