@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-
 from server import RecommendationResponse, app
 
 
@@ -21,7 +20,13 @@ class RecommendationServiceTest(unittest.TestCase):
         response = self.client.post(
             "/recommend",
             headers=self.headers,
-            json={"age": 28, "height": 1.72, "weight": 68, "gender": 1, "diseases": [1, 7]},
+            json={
+                "age": 28,
+                "height": 1.72,
+                "weight": 68,
+                "gender": 1,
+                "diseases": [1, 7],
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -39,7 +44,9 @@ class RecommendationServiceTest(unittest.TestCase):
     @patch("server.SERVICE_SECRET", "test-secret")
     @patch("server._build_structured_model")
     def test_empty_recommendations_are_a_successful_response(self, build_model):
-        build_model.return_value.invoke.return_value = RecommendationResponse(recommendations=[])
+        build_model.return_value.invoke.return_value = RecommendationResponse(
+            recommendations=[]
+        )
         response = self.client.post(
             "/recommend",
             headers=self.headers,
@@ -54,7 +61,13 @@ class RecommendationServiceTest(unittest.TestCase):
             response = self.client.post(
                 "/recommend",
                 headers=self.headers,
-                json={"age": 200, "height": 1.72, "weight": 68, "gender": 1, "diseases": []},
+                json={
+                    "age": 200,
+                    "height": 1.72,
+                    "weight": 68,
+                    "gender": 1,
+                    "diseases": [],
+                },
             )
         self.assertEqual(response.status_code, 422)
         build_model.assert_not_called()
