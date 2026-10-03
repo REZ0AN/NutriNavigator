@@ -75,7 +75,7 @@ focus a visible outline and honors reduced-motion preferences.
 | Screen | Layout |
 | --- | --- |
 | Home | Full-width photographic hero with a dark overlay, left-aligned headline and actions on desktop; featured product grid on a warm cream background; full-width forest dietary recommendation callout. Hero copy and actions center on narrow screens. |
-| Products and detail | Catalog has a 256px sticky filter column and an auto-filling product grid. Product cards use square, edge-to-edge cover images above rating, price, and action. Detail has a two-column gallery and information area, followed by a responsive review grid. |
+| Products and detail | Catalog has a 256px sticky filter column and an auto-filling product grid. Search and filters use the backend's matching count; pagination appears only when that count exceeds the backend page size. Product cards use square, edge-to-edge cover images above rating, price, and action. Detail has a two-column gallery and information area, followed by a responsive review grid. |
 | Search and recommendation | Search uses Tailwind classes around the existing photograph. The dietary page has a photographic hero with a white form card overlapping it, then a grid of food result cards. |
 | Account | Login and related authentication screens use a background photo with a dark overlay and a centered white card. Profile pages use their own card layout. |
 | Cart and checkout | Cart items sit beside a sticky 340px summary. The confirmation page has a similar two-column layout with a 320px summary. Shipping and payment use centered cards; checkout steps show the active and completed stage. |

@@ -26,7 +26,7 @@ const useDebounce = (value, delay = 500) => {
 const Products = () => {
   const dispatch = useDispatch();
   const { keyword } = useParams();
-  const { loading, error, products, productsCount, resultPerPage, filteredProductsCount, uniqueCategories } =
+  const { loading, error, products, resultPerPage, filteredProductsCount, uniqueCategories } =
     useSelector((s) => s.productsR);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,7 +48,7 @@ const Products = () => {
     dispatch(getProducts({ keyword: keyword || "", page: currentPage, price: debouncedPrice, category, ratings: debouncedRatings }));
   }, [dispatch, keyword, currentPage, debouncedPrice, category, debouncedRatings]);
 
-  const totalPages = Math.ceil((category || ratings ? filteredProductsCount : productsCount) / resultPerPage);
+  const totalPages = resultPerPage > 0 ? Math.ceil(filteredProductsCount / resultPerPage) : 0;
 
   if (loading) return <Loader />;
 
@@ -101,7 +101,7 @@ const Products = () => {
         <main className="flex min-w-0 flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-3xl text-brand-900">Products</h2>
-            <p className="font-body text-sm text-earth-600">{filteredProductsCount || productsCount} results</p>
+            <p className="font-body text-sm text-earth-600">{filteredProductsCount} results</p>
           </div>
 
           {products?.length > 0 ? (
@@ -115,19 +115,20 @@ const Products = () => {
           )}
 
           {totalPages > 1 && (
-            <div className="mt-8 flex flex-wrap justify-center gap-1 border-t border-admin-border pt-6">
+            <nav aria-label="Product pagination" className="mt-8 flex flex-wrap justify-center gap-1 border-t border-admin-border pt-6">
               <button className={pageButtonClass} disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>«</button>
               <button className={pageButtonClass} disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>‹</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
                   className={`${pageButtonClass} ${currentPage === n ? "border-brand-900 bg-brand-900 font-semibold text-white" : ""}`}
+                  aria-current={currentPage === n ? "page" : undefined}
                   onClick={() => setCurrentPage(n)}
                 >{n}</button>
               ))}
               <button className={pageButtonClass} disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => p + 1)}>›</button>
               <button className={pageButtonClass} disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)}>»</button>
-            </div>
+            </nav>
           )}
         </main>
       </div>
