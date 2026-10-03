@@ -5,11 +5,13 @@ const orderFindById = jest.fn();
 const orderDeleteOne = jest.fn();
 const orderFindOneAndUpdate = jest.fn();
 const orderUpdateOne = jest.fn();
+const orderAggregate = jest.fn();
 const productUpdateOne = jest.fn();
 const productFindOne = jest.fn();
+const refundPaymentIntent = jest.fn();
 
 jest.unstable_mockModule("../../models/orderModel.js", () => ({
-  default: { findOne: orderFindOne, findById: orderFindById, findOneAndUpdate: orderFindOneAndUpdate, updateOne: orderUpdateOne, deleteOne: orderDeleteOne },
+  default: { findOne: orderFindOne, findById: orderFindById, findOneAndUpdate: orderFindOneAndUpdate, updateOne: orderUpdateOne, deleteOne: orderDeleteOne, aggregate: orderAggregate },
 }));
 jest.unstable_mockModule("../../models/productModel.js", () => ({
   default: { updateOne: productUpdateOne, findOne: productFindOne },
@@ -18,8 +20,12 @@ jest.unstable_mockModule("../../controllers/paymentController.js", () => ({
   calculateOrderPricing: jest.fn(),
   verifyPaymentIntent: jest.fn(),
 }));
+jest.unstable_mockModule("../../services/stripeService.js", () => ({
+  refundPaymentIntent,
+  verifyPaymentIntent: jest.fn(),
+}));
 
-const { getSingleOrder, updateOrderStatus, deleteOrder } = await import("../../controllers/orderController.js");
+const { getSingleOrder, getAllOrders, totalAmountByDate, updateOrderStatus, deleteOrder } = await import("../../controllers/orderController.js");
 
 const invoke = async (controller, req) => {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
@@ -29,13 +35,56 @@ const invoke = async (controller, req) => {
 };
 
 describe("order controller authorization and transitions", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    refundPaymentIntent.mockResolvedValue({ id: "re_1", status: "succeeded" });
+  });
 
   test("looks up a customer's order using both order ID and authenticated user", async () => {
     const order = { _id: "order-1", user: "user-1" };
     orderFindOne.mockReturnValue({ populate: jest.fn().mockResolvedValue(order) });
     await invoke(getSingleOrder, { params: { id: "order-1" }, user: { id: "user-1" } });
     expect(orderFindOne).toHaveBeenCalledWith({ _id: "order-1", user: "user-1" });
+  });
+
+  test("uses bounded admin pagination and an aggregate total", async () => {
+    const populate = jest.fn().mockResolvedValue([{ _id: "order-1", totalprice: 10 }]);
+    orderFindOne.mockReturnValue({ populate });
+    const find = jest.fn();
+    const orderModel = (await import("../../models/orderModel.js")).default;
+    orderModel.find = find;
+    find.mockReturnValue({ sort: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), populate });
+    orderAggregate.mockResolvedValue([{ totalAmount: 10, totalCount: 1 }]);
+
+    const result = await invoke(getAllOrders, { query: { page: "2", limit: "500" } });
+
+    expect(find).toHaveBeenCalledWith();
+    expect(find().limit).toHaveBeenCalledWith(100);
+    expect(orderAggregate).toHaveBeenCalled();
+    expect(result.res.json).toHaveBeenCalledWith(expect.objectContaining({ totalAmount: 10, totalCount: 1, page: 2, limit: 100, hasNextPage: false }));
+  });
+
+  test("returns dashboard revenue and statuses from a bounded UTC aggregate", async () => {
+    orderAggregate.mockResolvedValue([{
+      dailyRevenue: [{ _id: "2026-01-02", totalAmount: 900 }],
+      statuses: [{ _id: "delivered", value: 2 }],
+      summary: [{ totalAmount: 900, totalCount: 2 }],
+    }]);
+    const result = await invoke(totalAmountByDate, { query: { from: "2026-01-01", to: "2026-01-31", timezone: "UTC" } });
+    expect(orderAggregate).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ $match: { createdAt: expect.objectContaining({ $gte: expect.any(Date), $lt: expect.any(Date) }) } }),
+    ]));
+    expect(result.res.json).toHaveBeenCalledWith(expect.objectContaining({
+      timezone: "UTC",
+      dailyRevenue: [{ _id: "2026-01-02", totalAmount: 900 }],
+      statusCounts: [{ name: "delivered", value: 2 }],
+    }));
+  });
+
+  test("rejects dashboard ranges longer than 366 days", async () => {
+    const result = await invoke(totalAmountByDate, { query: { from: "2025-01-01", to: "2026-01-02", timezone: "UTC" } });
+    expect(result.next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(orderAggregate).not.toHaveBeenCalled();
   });
 
   test("allows only processing-to-shipped and shipped-to-delivered transitions", async () => {
@@ -58,6 +107,7 @@ describe("order controller authorization and transitions", () => {
     orderFindOneAndUpdate.mockResolvedValue({ _id: "order-1", deletionInProgress: true, paymentinfo: { id: "pi-1" }, orderitems: [{ product: "p1", quantity: 2 }] });
     orderDeleteOne.mockResolvedValue({ deletedCount: 1 });
     await invoke(deleteOrder, { params: { id: "order-1" } });
+    expect(refundPaymentIntent).toHaveBeenCalledWith("pi-1", "order-delete-refund-order-1");
     expect(productUpdateOne).toHaveBeenCalledWith(
       { _id: "p1", stockReservations: { $elemMatch: { reservationId: "pi-1", quantity: 2 } } },
       { $inc: { stock: 2 }, $pull: { stockReservations: { reservationId: "pi-1" } } }
@@ -75,9 +125,9 @@ describe("order controller authorization and transitions", () => {
 
   test("returns not found on a repeated processing-order deletion", async () => {
     orderFindById
-      .mockResolvedValueOnce({ _id: "order-1", orderstatus: "processing", stockReserved: true, orderitems: [{ product: "p1", quantity: 2 }] })
+      .mockResolvedValueOnce({ _id: "order-1", orderstatus: "processing", stockReserved: true, paymentinfo: { id: "pi-repeat-delete" }, orderitems: [{ product: "p1", quantity: 2 }] })
       .mockResolvedValueOnce(null);
-    orderFindOneAndUpdate.mockResolvedValueOnce({ _id: "order-1", deletionInProgress: true, orderitems: [{ product: "p1", quantity: 2 }] });
+    orderFindOneAndUpdate.mockResolvedValueOnce({ _id: "order-1", deletionInProgress: true, paymentinfo: { id: "pi-repeat-delete" }, orderitems: [{ product: "p1", quantity: 2 }] });
     orderDeleteOne.mockResolvedValue({ deletedCount: 1 });
 
     await invoke(deleteOrder, { params: { id: "order-1" } });
@@ -105,6 +155,22 @@ describe("order controller authorization and transitions", () => {
     expect(retry.res.status).toHaveBeenCalledWith(200);
     expect(productUpdateOne).toHaveBeenCalledTimes(2);
     expect(orderFindOneAndUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  test("does not delete an order when Stripe refund fails", async () => {
+    orderFindById.mockResolvedValue({ _id: "order-refund-failure", orderstatus: "processing", stockReserved: true, paymentinfo: { id: "pi-refund-failure" }, orderitems: [{ product: "p1", quantity: 1 }] });
+    orderFindOneAndUpdate.mockResolvedValue({ _id: "order-refund-failure", deletionInProgress: true, paymentinfo: { id: "pi-refund-failure" }, orderitems: [{ product: "p1", quantity: 1 }] });
+    refundPaymentIntent.mockRejectedValue(Object.assign(new Error("Stripe unavailable"), { statusCode: 503 }));
+
+    const result = await invoke(deleteOrder, { params: { id: "order-refund-failure" } });
+
+    expect(result.next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 503 }));
+    expect(productUpdateOne).not.toHaveBeenCalled();
+    expect(orderDeleteOne).not.toHaveBeenCalled();
+    expect(orderUpdateOne).toHaveBeenCalledWith(
+      { _id: "order-refund-failure", deletionInProgress: true },
+      { $set: { deletionInProgress: false } },
+    );
   });
 
   test("does not update status when deletion wins the atomic claim", async () => {

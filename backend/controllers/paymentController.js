@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import PaymentReconciliation from "../models/paymentReconciliationModel.js";
 import Order from "../models/orderModel.js";
 import { getStripe, getScopedIdempotencyKey, verifyPaymentIntent } from "../services/stripeService.js";
-import { buildReconciliationRecoveryMetadata, createReconciliationSnapshot, finalizeReconciliation, recoverReconciliationSnapshot, terminalizeReconciliation } from "../services/orderFinalizationService.js";
+import { buildReconciliationRecoveryMetadata, createReconciliationSnapshot, finalizeReconciliation, recoverReconciliationSnapshot, reserveReconciliationStock, terminalizeReconciliation } from "../services/orderFinalizationService.js";
 
 const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -90,8 +90,9 @@ export const processPayment = catchAsyncErrors(async (req, res, next) => {
         },
     }, scopedIdempotencyKey ? { idempotencyKey: scopedIdempotencyKey } : undefined);
     let reconciliationRequired = false;
+    let reconciliation;
     try {
-        await persistReconciliationSnapshot({
+        reconciliation = await persistReconciliationSnapshot({
             paymentIntentId: myPayment.id,
             userId: req.user.id,
             shippinginfo,
@@ -102,6 +103,28 @@ export const processPayment = catchAsyncErrors(async (req, res, next) => {
         // PaymentIntent metadata is the durable fallback. The webhook can
         // recreate the exact snapshot after MongoDB becomes available again.
         reconciliationRequired = true;
+    }
+
+    if (reconciliation) {
+        try {
+            await reserveReconciliationStock(reconciliation);
+        } catch (error) {
+            // This checkout lost an atomic stock race. Cancel the still-
+            // unconfirmed PaymentIntent so the customer is not left with a
+            // payment that can never become an order.
+            try {
+                await getStripe().paymentIntents.cancel(myPayment.id);
+                await terminalizeReconciliation(reconciliation, { status: "canceled", paymentStatus: "canceled" });
+            } catch {
+                return res.status(503).json({
+                    success: false,
+                    reconciliationRequired: true,
+                    paymentIntentId: myPayment.id,
+                    message: "Stock became unavailable and payment cancellation is pending.",
+                });
+            }
+            throw error;
+        }
     }
     res.status(200).json({
         success: true,

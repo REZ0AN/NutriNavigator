@@ -28,3 +28,20 @@ export const verifyPaymentIntent = async (paymentId, amount, currency) => {
   }
   return paymentIntent;
 };
+
+export const refundPaymentIntent = async (paymentId, idempotencyKey) => {
+  if (!paymentId) throw new ErrorHandler("A Stripe PaymentIntent is required for a refund.", 400);
+  try {
+    const refund = await getStripe().refunds.create(
+      { payment_intent: paymentId },
+      { idempotencyKey },
+    );
+    if (refund.status !== "succeeded") {
+      throw new ErrorHandler("The Stripe refund has not completed.", 503);
+    }
+    return refund;
+  } catch (error) {
+    if (error instanceof ErrorHandler) throw error;
+    throw new ErrorHandler("Unable to refund the Stripe payment.", 503);
+  }
+};

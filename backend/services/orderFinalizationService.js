@@ -69,7 +69,18 @@ const reserveStock = async (items, reservationId) => {
         { $inc: { stock: -item.quantity }, $push: { stockReservations: { reservationId, quantity: item.quantity } } },
         { new: true }
       );
-      if (!product) throw new ErrorHandler(`Insufficient stock for ${item.name}.`, 409);
+      if (!product) {
+        // Another retry for the same PaymentIntent may have inserted the
+        // reservation between our read and conditional update. Treat that as
+        // success; only a different reservation means stock is unavailable.
+        const concurrentReservation = await Product.findOne({ _id: item.product, stockReservations: { $elemMatch: { reservationId } } });
+        if (concurrentReservation) {
+          const reservation = concurrentReservation.stockReservations.find(({ reservationId: id }) => id === reservationId);
+          if (reservation?.quantity === item.quantity) continue;
+          throw new ErrorHandler("Payment reservation does not match this order.", 409);
+        }
+        throw new ErrorHandler(`Insufficient stock for ${item.name}.`, 409);
+      }
       newlyReserved.push(item);
     }
     return newlyReserved;
@@ -121,6 +132,23 @@ export const releaseReservationSnapshot = async (snapshot) => {
 };
 
 export const releaseOrderStock = releaseReservationSnapshot;
+
+// Reserve inventory before the browser confirms a PaymentIntent. The marker
+// is keyed by the PaymentIntent, so retries reuse the same reservation and a
+// competing checkout cannot reserve the same final unit.
+export const reserveReconciliationStock = async (reconciliation) => {
+  const newlyReservedItems = await reserveStock(reconciliation.orderitems, reconciliation.paymentIntentId);
+  try {
+    await PaymentReconciliation.updateOne(
+      { _id: reconciliation._id },
+      { $set: { stockReserved: true } },
+    );
+  } catch (error) {
+    if (newlyReservedItems.length > 0) await releaseStock(newlyReservedItems, reconciliation.paymentIntentId);
+    throw error;
+  }
+  return newlyReservedItems;
+};
 
 // Cancellation gets its own atomic claim so it cannot release a reservation
 // while an active success webhook is finalizing the same PaymentIntent.
@@ -197,6 +225,7 @@ export const finalizeReconciliation = async (reconciliation) => {
   // document read before the competing webhook acquired the claim.
   reconciliation = claimed;
   let newlyReservedItems = [];
+  let createdOrder = null;
   try {
     const amount = Math.round(reconciliation.totalprice * 100);
     const paymentIntent = await verifyPaymentIntent(reconciliation.paymentIntentId, amount, "inr");
@@ -206,9 +235,13 @@ export const finalizeReconciliation = async (reconciliation) => {
       return existingOrder;
     }
 
-    newlyReservedItems = await reserveStock(reconciliation.orderitems, reconciliation.paymentIntentId);
+    // A payment-process reservation is reused here. Recovery paths that were
+    // created before reservation was introduced still reserve at this point.
+    if (!reconciliation.stockReserved) {
+      newlyReservedItems = await reserveStock(reconciliation.orderitems, reconciliation.paymentIntentId);
+    }
     await PaymentReconciliation.updateOne({ _id: reconciliation._id }, { $set: { stockReserved: true, paymentStatus: "succeeded" } });
-    const order = await Order.create({
+    createdOrder = await Order.create({
       shippinginfo: reconciliation.shippinginfo,
       orderitems: reconciliation.orderitems,
       paymentinfo: { id: paymentIntent.id, status: paymentIntent.status },
@@ -221,8 +254,13 @@ export const finalizeReconciliation = async (reconciliation) => {
       stockReserved: true,
     });
     await PaymentReconciliation.deleteOne({ _id: reconciliation._id });
-    return order;
+    return createdOrder;
   } catch (error) {
+    // Order.create may have succeeded while the reconciliation cleanup failed.
+    // Never release stock for an order that already exists: doing so creates a
+    // paid order whose inventory is available for sale again.
+    const existingOrder = createdOrder || await findExistingOrder(reconciliation);
+    if (existingOrder) return existingOrder;
     if (newlyReservedItems.length > 0) await releaseStock(newlyReservedItems, reconciliation.paymentIntentId);
     await PaymentReconciliation.updateOne(
       { _id: reconciliation._id, status: "finalizing" },

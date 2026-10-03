@@ -30,6 +30,7 @@ jest.unstable_mockModule("../../services/orderFinalizationService.js", () => ({
   buildReconciliationRecoveryMetadata: jest.fn(() => ({ reconciliation_recovery_version: "1" })),
   recoverReconciliationSnapshot,
   finalizeReconciliation,
+  reserveReconciliationStock: jest.fn(),
   releaseReservationSnapshot,
   terminalizeReconciliation,
 }));

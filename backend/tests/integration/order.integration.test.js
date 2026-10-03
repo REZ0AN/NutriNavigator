@@ -5,10 +5,13 @@ const describeDatabase = shouldRun ? describe : describe.skip;
 
 const retrievePaymentIntent = jest.fn();
 const createPaymentIntent = jest.fn();
+const cancelPaymentIntent = jest.fn();
+const createRefund = jest.fn();
 const constructEvent = jest.fn();
 jest.unstable_mockModule("stripe", () => ({
   default: jest.fn(() => ({
-    paymentIntents: { retrieve: retrievePaymentIntent, create: createPaymentIntent },
+    paymentIntents: { retrieve: retrievePaymentIntent, create: createPaymentIntent, cancel: cancelPaymentIntent },
+    refunds: { create: createRefund },
     webhooks: { constructEvent },
   })),
 }));
@@ -52,6 +55,9 @@ describeDatabase("order and review API integration", () => {
     retrievePaymentIntent.mockReset();
     retrievePaymentIntent.mockResolvedValue({ id: "pi_test", status: "succeeded", amount: 43600, currency: "inr" });
     createPaymentIntent.mockReset();
+    cancelPaymentIntent.mockReset();
+    createRefund.mockReset();
+    createRefund.mockResolvedValue({ id: "re_test", status: "succeeded" });
     constructEvent.mockReset();
   });
 
@@ -125,6 +131,27 @@ describeDatabase("order and review API integration", () => {
     await request(app).post("/api/v1/payment/process").set("Cookie", cookieFor(owner)).send(body).expect(200);
     await request(app).post("/api/v1/payment/process").set("Cookie", cookieFor(other)).send(body).expect(200);
     expect(createPaymentIntent.mock.calls[0][1]).not.toEqual(createPaymentIntent.mock.calls[1][1]);
+  });
+
+  test("reserves the final unit before confirmation and cancels the losing checkout", async () => {
+    await Product.findByIdAndUpdate(product._id, { stock: 1 });
+    let paymentSequence = 0;
+    createPaymentIntent.mockImplementation(async () => {
+      paymentSequence += 1;
+      return { id: `pi_pre_reservation_${paymentSequence}`, client_secret: `secret_${paymentSequence}`, status: "requires_payment_method" };
+    });
+    cancelPaymentIntent.mockImplementation(async (paymentId) => ({ id: paymentId, status: "canceled" }));
+
+    const makeRequest = (idempotencyKey) => request(app).post("/api/v1/payment/process")
+      .set("Cookie", cookieFor(owner))
+      .send({ shippinginfo, orderitems: [{ product: product._id, quantity: 1 }], idempotencyKey });
+    const responses = await Promise.all([makeRequest("race-1"), makeRequest("race-2")]);
+
+    expect(responses.map(({ statusCode }) => statusCode).sort()).toEqual([200, 409]);
+    expect(cancelPaymentIntent).toHaveBeenCalledTimes(1);
+    expect((await Product.findById(product._id)).stock).toBe(0);
+    expect(await PaymentReconciliation.countDocuments({ status: "canceled" })).toBe(1);
+    expect(await PaymentReconciliation.countDocuments({ status: "pending", stockReserved: true })).toBe(1);
   });
 
   test("webhook finalizes a matching reconciliation and duplicate events stay idempotent", async () => {
@@ -378,8 +405,23 @@ describeDatabase("order and review API integration", () => {
     const order = await Order.create({ shippinginfo, orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }], user: owner._id, paymentinfo: { id: "pi_delete", status: "succeeded" }, paidat: new Date(), stockReserved: true });
     await Product.findByIdAndUpdate(product._id, { $inc: { stock: -1 }, $push: { stockReservations: { reservationId: "pi_delete", quantity: 1 } } });
     await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(200);
+    expect(createRefund).toHaveBeenCalledWith(
+      { payment_intent: "pi_delete" },
+      { idempotencyKey: `order-delete-refund-${order._id}` },
+    );
     expect((await Product.findById(product._id)).stock).toBe(5);
     await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(404);
+  });
+
+  test("keeps the order and inventory when the Stripe refund fails", async () => {
+    const order = await Order.create({ shippinginfo, orderitems: [{ name: "Apple", price: 100, quantity: 1, image: product.images[0], product: product._id }], user: owner._id, paymentinfo: { id: "pi_refund_failure", status: "succeeded" }, paidat: new Date(), stockReserved: true });
+    await Product.findByIdAndUpdate(product._id, { $inc: { stock: -1 }, $push: { stockReservations: { reservationId: "pi_refund_failure", quantity: 1 } } });
+    createRefund.mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+    await request(app).delete(`/api/v1/admin/order/${order._id}`).set("Cookie", cookieFor(admin)).expect(503);
+
+    expect(await Order.exists({ _id: order._id })).toBeTruthy();
+    expect((await Product.findById(product._id)).stock).toBe(4);
   });
 
   test("rejects a stale deletion after the order has shipped and preserves inventory", async () => {

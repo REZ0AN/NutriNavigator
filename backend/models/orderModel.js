@@ -52,6 +52,7 @@ const orderSchema = new mongoose.Schema(
 
 // A PaymentIntent may create at most one order, even if the browser retries.
 orderSchema.index({ "paymentinfo.id": 1 }, { unique: true, sparse: true });
+orderSchema.index({ createdAt: -1, _id: -1 });
 
 const Order = mongoose.model("orders", orderSchema);
 

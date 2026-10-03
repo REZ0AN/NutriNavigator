@@ -4,7 +4,7 @@ import catchAsyncErrors from "../middlewares/catchAsyncErrorHandlingMiddleware.j
 import { calculateOrderPricing } from "./paymentController.js";
 import PaymentReconciliation from "../models/paymentReconciliationModel.js";
 import { finalizeReconciliation, createReconciliationSnapshot, releaseOrderStock } from "../services/orderFinalizationService.js";
-import { verifyPaymentIntent } from "../services/stripeService.js";
+import { refundPaymentIntent, verifyPaymentIntent } from "../services/stripeService.js";
 
 // ─── Create order ─────────────────────────────────────────────────────────────
 export const newOrder = catchAsyncErrors(async (req, res) => {
@@ -80,9 +80,30 @@ export const getAdminSingleOrder = catchAsyncErrors(async (req, res, next) => {
 
 // ─── Get all orders (Admin) ───────────────────────────────────────────────────
 export const getAllOrders = catchAsyncErrors(async (req, res) => {
-    const orders = await Order.find().populate("user", "name email");
-    const totalAmount = orders.reduce((acc, order) => acc + order.totalprice, 0);
-    res.status(200).json({ success: true, orders, totalAmount });
+    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 100, 1), 100);
+    const skip = (page - 1) * limit;
+    const [orders, summary] = await Promise.all([
+        Order.find()
+            .sort({ createdAt: -1, _id: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate("user", "name email"),
+        Order.aggregate([
+            { $group: { _id: null, totalAmount: { $sum: "$totalprice" }, totalCount: { $sum: 1 } } },
+        ]),
+    ]);
+    const totalCount = summary[0]?.totalCount || 0;
+    const totalAmount = summary[0]?.totalAmount || 0;
+    res.status(200).json({
+        success: true,
+        orders,
+        totalAmount,
+        totalCount,
+        page,
+        limit,
+        hasNextPage: skip + orders.length < totalCount,
+    });
 });
 
 // ─── Update order status (Admin) ──────────────────────────────────────────────
@@ -139,8 +160,14 @@ export const deleteOrder = catchAsyncErrors(async (req, res, next) => {
     if (!claimed) return next(new ErrorHandler("The order is being deleted or has changed; retry the operation.", 409));
 
     try {
+        const paymentId = claimed.paymentinfo?.id;
+        if (!paymentId) throw new ErrorHandler("The order has no refundable payment reference.", 409);
+        // The order ID makes retries of this deletion use the same Stripe
+        // idempotency key, so a successful refund cannot be duplicated.
+        await refundPaymentIntent(paymentId, `order-delete-refund-${claimed._id}`);
+
         // Release each marker atomically. The claim remains until all product
-        // updates finish, so a failed release can be retried safely.
+        // updates finish, so a failed refund or release can be retried safely.
         await releaseOrderStock(claimed);
         const deleted = await Order.deleteOne({ _id: req.params.id, orderstatus: "processing", deletionInProgress: true });
         if (deleted.deletedCount !== 1) throw new ErrorHandler("The order changed while it was being deleted.", 409);
@@ -162,22 +189,64 @@ export const myOrders = catchAsyncErrors(async (req, res) => {
 });
 
 // ─── Sales data grouped by date (Admin dashboard) ────────────────────────────
-export const totalAmountByDate = catchAsyncErrors(async (req, res) => {
-    const amounts = await Order.aggregate([
+export const totalAmountByDate = catchAsyncErrors(async (req, res, next) => {
+    const { from, to, timezone = "UTC" } = req.query;
+    if (timezone !== "UTC") {
+        return next(new ErrorHandler("Dashboard metrics currently use UTC dates.", 400));
+    }
+
+    const hasRange = from !== undefined || to !== undefined;
+    let rangeMatch = {};
+    if (hasRange) {
+        const start = new Date(`${from}T00:00:00.000Z`);
+        const end = new Date(`${to}T00:00:00.000Z`);
+        end.setUTCDate(end.getUTCDate() + 1);
+        const rangeDays = (end - start) / 86400000;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "")
+            || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+            || start >= end || rangeDays > 366) {
+            return next(new ErrorHandler("A valid UTC date range of 366 days or less is required.", 400));
+        }
+        rangeMatch = { createdAt: { $gte: start, $lt: end } };
+    }
+
+    const [metrics] = await Order.aggregate([
+        { $match: rangeMatch },
         {
-            $group: {
-                _id: {
-                    year: { $year: "$createdAt" },
-                    month: { $month: "$createdAt" },
-                    day: { $dayOfMonth: "$createdAt" },
-                },
-                totalAmount: { $sum: "$totalprice" },
+            $facet: {
+                dailyRevenue: [
+                    { $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "UTC" } },
+                        totalAmount: { $sum: "$totalprice" },
+                    } },
+                    { $sort: { _id: 1 } },
+                ],
+                statuses: [
+                    { $group: { _id: "$orderstatus", value: { $sum: 1 } } },
+                    { $sort: { _id: 1 } },
+                ],
+                summary: [
+                    { $group: { _id: null, totalAmount: { $sum: "$totalprice" }, totalCount: { $sum: 1 } } },
+                ],
             },
         },
-        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
     ]);
+    const dailyRevenue = metrics?.dailyRevenue || [];
+    const summary = metrics?.summary?.[0] || {};
+    const amounts = dailyRevenue.map(({ _id, totalAmount }) => {
+        const [year, month, day] = _id.split("-").map(Number);
+        return { _id: { year, month, day }, totalAmount };
+    });
 
-    res.status(200).json({ success: true, amounts });
+    res.status(200).json({
+        success: true,
+        amounts,
+        dailyRevenue,
+        statusCounts: (metrics?.statuses || []).map(({ _id, value }) => ({ name: _id, value })),
+        totalAmount: summary.totalAmount || 0,
+        totalCount: summary.totalCount || 0,
+        timezone: "UTC",
+    });
 });
 
 // ─── Export delivered orders for an inclusive date range (Admin) ─────────────
@@ -187,7 +256,8 @@ export const exportDeliveredOrders = catchAsyncErrors(async (req, res, next) => 
     const end = new Date(`${to}T00:00:00.000Z`);
     end.setUTCDate(end.getUTCDate() + 1);
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "") || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end) {
+    const rangeDays = (end - start) / (24 * 60 * 60 * 1000);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "") || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start >= end || rangeDays > 366) {
         return next(new ErrorHandler("A valid date range is required.", 400));
     }
 

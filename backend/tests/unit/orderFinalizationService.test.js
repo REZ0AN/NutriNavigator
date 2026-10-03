@@ -27,6 +27,15 @@ const { claimReconciliation, finalizeReconciliation, terminalizeReconciliation, 
 describe("reconciliation finalization concurrency", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    reconciliationFindOneAndUpdate.mockReset();
+    reconciliationUpdateOne.mockReset();
+    reconciliationDeleteOne.mockReset();
+    orderFindOne.mockReset();
+    orderCreate.mockReset();
+    productFindOne.mockReset();
+    productFindOneAndUpdate.mockReset();
+    productUpdateOne.mockReset();
+    verifyPaymentIntent.mockReset();
     reconciliationUpdateOne.mockResolvedValue({ modifiedCount: 1 });
     reconciliationDeleteOne.mockResolvedValue({ deletedCount: 1 });
     reconciliationFind.mockReset();
@@ -71,6 +80,27 @@ describe("reconciliation finalization concurrency", () => {
     expect(loser).toEqual({ _id: "order-1" });
     expect(orderCreate).toHaveBeenCalledTimes(1);
     expect(productFindOneAndUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not release stock when order creation succeeded but reconciliation cleanup fails", async () => {
+    const reconciliation = {
+      _id: "rec-cleanup", paymentIntentId: "pi-cleanup", user: "user-1", totalprice: 318,
+      shippinginfo: {}, orderitems: [{ product: "product-1", quantity: 1, name: "Apple" }],
+      itemsprice: 100, tax: 18, shippingcost: 200, stockReserved: false,
+    };
+    reconciliationFindOneAndUpdate.mockResolvedValue({ ...reconciliation, status: "finalizing" });
+    productFindOne.mockResolvedValue(null);
+    productFindOneAndUpdate.mockResolvedValue({});
+    const order = { _id: "order-created" };
+    orderCreate.mockResolvedValue(order);
+    reconciliationDeleteOne.mockRejectedValue(new Error("cleanup unavailable"));
+
+    await expect(finalizeReconciliation(reconciliation)).resolves.toEqual(order);
+    expect(productUpdateOne).not.toHaveBeenCalled();
+    expect(reconciliationUpdateOne).toHaveBeenCalledWith(
+      { _id: reconciliation._id },
+      { $set: { stockReserved: true, paymentStatus: "succeeded" } },
+    );
   });
 
   test("atomically claims cancellation before releasing reservation", async () => {
