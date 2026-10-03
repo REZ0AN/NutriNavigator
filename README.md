@@ -59,9 +59,9 @@ STRIPE_API_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# ML Server
-ML_SERVER_URL=http://127.0.0.1:5000
-ML_SECRET=generate_a_random_secret_here
+# Recommendation Service
+RECOMMENDATION_SERVICE_URL=http://127.0.0.1:5000
+RECOMMENDATION_SERVICE_SECRET=use_the_same_random_secret_as_recommendation_service
 ```
 
 > **Generate JWT_SECRET:**
@@ -93,10 +93,10 @@ Checks all required env vars, MongoDB connection, Cloudinary ping, and Stripe ac
 
 ---
 
-### 5. ML Server
+### 5. Recommendation service
 
 ```bash
-cd mlserver
+cd recommendation_service
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -105,17 +105,16 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 # Install runtime dependencies
 pip install -r requirements.txt
 
-# Create mlserver/.env
+# Create recommendation_service/.env
 PORT=5000
-FLASK_ENV=development
-ALLOWED_ORIGIN=http://localhost:4080
-ML_SECRET=same_value_as_backend_ML_SECRET
-
-# Train the model — only needed once
-python train_model.py
+APP_ENV=development
+GEMINI_API_KEY=your-google-ai-studio-api-key
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+GEMINI_MODEL=gemma-4b-it
+RECOMMENDATION_SERVICE_SECRET=same_value_as_backend_RECOMMENDATION_SERVICE_SECRET
 
 # Start
-python server.py
+uvicorn server:app --host 0.0.0.0 --port 5000
 ```
 
 ---
@@ -127,11 +126,8 @@ cd frontend
 npm install
 ```
 
-Create `frontend/.env`:
-```env
-# ML recommendations proxy through backend — this is for reference only
-REACT_APP_ML_URL=http://127.0.0.1:5000
-```
+The frontend does not need an LLM API key or recommendation-service secret.
+It calls the authenticated backend recommendation route.
 
 ---
 
@@ -143,9 +139,9 @@ cd backend && npm run dev
 # → http://localhost:4080
 ```
 
-**Terminal 2 — ML Server**
+**Terminal 2 — Recommendation service**
 ```bash
-cd mlserver && source .venv/bin/activate && python server.py
+cd recommendation_service && source .venv/bin/activate && uvicorn server:app --host 0.0.0.0 --port 5000
 # → http://localhost:5000
 ```
 
@@ -157,7 +153,35 @@ cd frontend && npm start
 
 ---
 
-### 8. Create your first admin user
+### 8. Run with Docker Compose
+
+Copy the root environment template and fill in the required secrets:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+The Compose stack starts MongoDB, the recommendation service, the backend, and
+the Nginx-served frontend. The frontend is available at
+`http://localhost:3000` and the backend at `http://localhost:4080`. Compose
+reads values dynamically from the root `.env`; do not commit that file.
+
+To stop the stack while preserving MongoDB data:
+
+```bash
+docker compose down
+```
+
+To explicitly remove the local MongoDB volume as well:
+
+```bash
+docker compose down -v
+```
+
+---
+
+### 9. Create your first admin user
 
 Register through the UI and verify your email, then promote to admin:
 
@@ -173,13 +197,13 @@ Log out and back in — the Dashboard link appears in the user menu.
 
 ---
 
-### 9. Test the ML server
+### 10. Test the recommendation service
 
 ```bash
 curl -X POST http://127.0.0.1:5000/recommend \
   -H "Content-Type: application/json" \
-  -H "X-ML-Secret: your_ml_secret" \
-  -d '{"age": 28, "height": 1.72, "weight": 68, "gender": 1, "diesease": [1, 7]}'
+  -H "X-Recommendation-Secret: your_recommendation_service_secret" \
+  -d '{"age": 28, "height": 1.72, "weight": 68, "gender": 1, "diseases": [1, 7]}'
 ```
 
 ---
