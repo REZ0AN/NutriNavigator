@@ -80,7 +80,7 @@ until each screen is migrated and checked.
 | Search and recommendation | Search has its own page styles. The dietary page has a photographic hero with a white form card overlapping it, then a grid of food result cards. |
 | Account | Login and related authentication screens use a background photo with a dark overlay and a centered white card. Profile pages use their own card layout. |
 | Cart and checkout | Cart items sit beside a sticky 340px summary. The confirmation page has a similar two-column layout with a 320px summary. Shipping and payment use centered cards; checkout steps show the active and completed stage. |
-| Orders and admin | Customer orders use a horizontally scrollable table and detail cards. The admin dashboard uses statistic cards, charts, and shared tables; other admin pages use the same sidebar and form/table styles. |
+| Orders and admin | Customer orders use a horizontally scrollable table and detail cards. The admin dashboard uses statistic cards, interactive charts, and shared tables; other admin pages use the same sidebar and form/table styles. |
 
 ### Responsive behavior
 
@@ -157,7 +157,7 @@ admin routes send signed-in users without an admin role to `/error/403`.
 
 | Goal | Entry point and flow | Result |
 | --- | --- | --- |
-| Monitor the store | Open `/admin/dashboard`. Inspect summary cards, revenue and order-status charts, recent orders, stock levels, and any out-of-stock alert. Select a date preset or custom range and use **Export Delivered** for the selected range. | A dashboard view of current activity and an order export when requested. |
+| Monitor the store | Open `/admin/dashboard`. Inspect all-time summary cards, a selected-range order-value and order-count summary, order-value and status charts, recent orders, stock levels, and any out-of-stock alert. Select a UTC date preset or custom range, group the line chart daily, weekly, or monthly, and use **Export Delivered** for the selected range. | A dashboard view of current activity and an order export when requested. |
 | Manage catalog | Open `/admin/products`. Create a product at `/admin/product`, or open `/admin/product/:id` to edit its name, description, price, category, stock, and images. Delete from the list. | Product changes appear in the catalog after a successful server response. |
 | Process orders | Open `/admin/orders`, move between list pages, and select an order at `/admin/order/:id`. Review payment, shipping, and items before updating status. | The UI offers `processing → shipped → delivered`, one step at a time. Delivered orders have no further status form. The list also exposes a delete action. |
 | Manage users | Open `/admin/users`, then `/admin/user/:id` to edit name, email, or role; the list also exposes deletion. | Updated account details or role are saved after the server accepts the request. |
@@ -173,3 +173,10 @@ admin routes send signed-in users without an admin role to `/error/403`.
 The sidebar links to the dashboard, products, orders, users, and reviews. The
 frontend guard restricts the admin routes; each backend endpoint enforces its
 own authorization.
+
+Dashboard date filters use UTC calendar days and include both endpoints. The
+selected-range order value sums the total price of all orders created in that
+range, regardless of payment or delivery status. It is an order-value measure,
+not settled revenue. The all-time cards are labeled separately. The export
+contains delivered orders selected by delivery date, so its contents can differ
+from the created-order charts for the same dates.

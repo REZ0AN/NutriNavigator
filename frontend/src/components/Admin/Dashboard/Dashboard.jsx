@@ -29,19 +29,19 @@ const PRESET_LABELS = { today: "Today", week: "This Week", month: "This Month", 
 const MAX_RANGE_DAYS = 366;
 
 const pad = (value) => String(value).padStart(2, "0");
-const formatDateInput = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const formatDateInput = (date) => `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 const getPresetRange = (preset) => {
   const end = new Date();
   const start = new Date(end);
   if (preset === "today") {
     // start already represents today.
   } else if (preset === "week") {
-    const day = start.getDay() || 7;
-    start.setDate(start.getDate() - day + 1);
+    const day = start.getUTCDay() || 7;
+    start.setUTCDate(start.getUTCDate() - day + 1);
   } else if (preset === "month") {
-    start.setDate(1);
+    start.setUTCDate(1);
   } else if (preset === "year") {
-    start.setMonth(0, 1);
+    start.setUTCMonth(0, 1);
   }
   return { from: formatDateInput(start), to: formatDateInput(end) };
 };
@@ -69,14 +69,14 @@ const downloadDeliveredOrders = (orders, range) => {
 
 export const buildRevenueData = (orders = [], range) => {
   if (!range?.from || !range?.to || range.from > range.to) return [];
-  const start = new Date(`${range.from}T00:00:00`);
-  const end = new Date(`${range.to}T00:00:00`);
+  const start = new Date(`${range.from}T00:00:00.000Z`);
+  const end = new Date(`${range.to}T00:00:00.000Z`);
   const days = [];
   const revenueByDate = new Map();
-  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+  for (const d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     const dateStr = formatDateInput(d);
     days.push({
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
       dateStr,
       revenue: 0,
     });
@@ -108,7 +108,37 @@ export const buildRevenueDataFromMetrics = (dailyRevenue = [], range) => {
 
 export const isRangeTooLarge = (range, maxDays = MAX_RANGE_DAYS) => {
   if (!range?.from || !range?.to || range.from > range.to) return false;
-  return ((new Date(`${range.to}T00:00:00`) - new Date(`${range.from}T00:00:00`)) / 86400000 + 1) > maxDays;
+  return ((new Date(`${range.to}T00:00:00.000Z`) - new Date(`${range.from}T00:00:00.000Z`)) / 86400000 + 1) > maxDays;
+};
+
+export const groupOrderValueData = (dailyRevenue = [], range, granularity = "day") => {
+  if (granularity === "day") return buildRevenueDataFromMetrics(dailyRevenue, range);
+  if (!range?.from || !range?.to || range.from > range.to) return [];
+
+  const amounts = new Map(dailyRevenue.map(({ _id, totalAmount }) => [_id, totalAmount]));
+  const buckets = new Map();
+  const start = new Date(`${range.from}T00:00:00.000Z`);
+  const end = new Date(`${range.to}T00:00:00.000Z`);
+  for (const date = new Date(start); date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
+    const dateKey = formatDateInput(date);
+    const bucketStart = new Date(date);
+    if (granularity === "week") {
+      bucketStart.setUTCDate(bucketStart.getUTCDate() - ((bucketStart.getUTCDay() + 6) % 7));
+    } else {
+      bucketStart.setUTCDate(1);
+    }
+    const bucketKey = formatDateInput(bucketStart);
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, {
+        label: granularity === "week"
+          ? `Week of ${bucketStart.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`
+          : bucketStart.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
+        revenue: 0,
+      });
+    }
+    buckets.get(bucketKey).revenue += amounts.get(dateKey) || 0;
+  }
+  return [...buckets.values()];
 };
 
 const buildStockData = (products = []) =>
@@ -125,7 +155,7 @@ const RevenueTooltip = ({ active, payload, label }) => {
   return (
     <div className="chart-tooltip">
       <p className="chart-tooltip__label">{label}</p>
-      <p className="chart-tooltip__value">৳{payload[0].value.toLocaleString()}</p>
+      <p className="chart-tooltip__value">Order value: ৳{payload[0].value.toLocaleString()}</p>
     </div>
   );
 };
@@ -133,13 +163,18 @@ const RevenueTooltip = ({ active, payload, label }) => {
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { products } = useSelector((s) => s.productsR);
-  const { orders, totalAmount, totalCount, dashboardMetrics, loading } = useSelector((s) => s.allOrdersR);
+  const { orders, totalAmount, totalCount, loading } = useSelector((s) => s.allOrdersR);
   const { users } = useSelector((s) => s.adminUsersR);
   const [preset, setPreset] = useState("week");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [granularity, setGranularity] = useState("day");
+  const [metricsView, setMetricsView] = useState({ key: "", data: null, loading: false, error: "" });
+  const [refreshKey, setRefreshKey] = useState(0);
   const [exporting, setExporting] = useState(false);
   const selectedRange = preset === "custom" ? customRange : getPresetRange(preset);
   const selectedRangeTooLarge = isRangeTooLarge(selectedRange);
+  const rangeKey = `${selectedRange.from}:${selectedRange.to}`;
+  const validRange = selectedRange.from && selectedRange.to && !selectedRangeTooLarge && selectedRange.from <= selectedRange.to;
 
 useEffect(() => {
   dispatch(getAllAdminProducts());
@@ -148,14 +183,26 @@ useEffect(() => {
 }, [dispatch]);
 
 useEffect(() => {
-  if (selectedRange.from && selectedRange.to && !selectedRangeTooLarge && selectedRange.from <= selectedRange.to) {
-    dispatch(fetchOrderDashboardMetrics({ from: selectedRange.from, to: selectedRange.to }));
-  }
-}, [dispatch, selectedRange.from, selectedRange.to, selectedRangeTooLarge]);
+  if (!validRange) return;
+  let active = true;
+  setMetricsView({ key: rangeKey, data: null, loading: true, error: "" });
+  dispatch(fetchOrderDashboardMetrics({ from: selectedRange.from, to: selectedRange.to }))
+    .unwrap()
+    .then((data) => {
+      if (active) setMetricsView({ key: rangeKey, data, loading: false, error: "" });
+    })
+    .catch((error) => {
+      if (active) setMetricsView({ key: rangeKey, data: null, loading: false, error: String(error) });
+    });
+  return () => { active = false; };
+}, [dispatch, selectedRange.from, selectedRange.to, validRange, rangeKey, refreshKey]);
 
   const outOfStock  = products?.filter((p) => p.stock < 1).length || 0;
-  const revenueData = buildRevenueDataFromMetrics(dashboardMetrics?.dailyRevenue || [], selectedRange);
-  const statusData  = dashboardMetrics?.statusCounts || [];
+  const currentMetrics = metricsView.key === rangeKey ? metricsView : { key: rangeKey, data: null, loading: Boolean(validRange), error: "" };
+  const revenueData = currentMetrics.data
+    ? groupOrderValueData(currentMetrics.data.dailyRevenue || [], selectedRange, granularity)
+    : [];
+  const statusData = currentMetrics.data?.statusCounts || [];
   const stockData   = buildStockData(products);
 
   const handleCustomDate = (field, value) => {
@@ -177,7 +224,7 @@ useEffect(() => {
   };
 
   const stats = [
-    { label: "Total Revenue", value: `৳${(totalAmount || 0).toLocaleString()}`, icon: MdWallet, color: GREEN,  bg: "#EBF7EF", link: "/admin/orders" },
+    { label: "Total Order Value", value: `৳${(totalAmount || 0).toLocaleString()}`, icon: MdWallet, color: GREEN,  bg: "#EBF7EF", link: "/admin/orders" },
     { label: "Products",      value: products?.length || 0,                      icon: MdInventory,     color: BLUE,   bg: "#E8F2FA", link: "/admin/products" },
     { label: "Orders",        value: totalCount ?? orders?.length ?? 0,          icon: MdShoppingBag,   color: AMBER,  bg: "#FEF3E2", link: "/admin/orders" },
     { label: "Users",         value: users?.length || 0,                         icon: MdPeople,        color: PURPLE, bg: "#F3EBF9", link: "/admin/users" },
@@ -189,6 +236,7 @@ useEffect(() => {
     <AdminLayout>
       <MetaData title="Admin Dashboard" />
       <h1 className="admin-page-title">Dashboard</h1>
+      <p className="dashboard-overview-label">All-time overview</p>
 
       <div className="dashboard-stats">
         {stats.map(({ label, value, icon: Icon, color, bg, link }) => (
@@ -209,15 +257,33 @@ useEffect(() => {
         </div>
       )}
 
+      <section className="dashboard-range-summary" aria-label="Selected date range summary">
+        <div>
+          <p className="dashboard-range-summary__eyebrow">Selected range · UTC</p>
+          <h2>{validRange ? `${selectedRange.from} to ${selectedRange.to}` : "Choose a valid date range"}</h2>
+        </div>
+        <div className="dashboard-range-summary__metrics">
+          <div><span>Order value</span><strong>{currentMetrics.data ? `৳${currentMetrics.data.totalAmount.toLocaleString()}` : "—"}</strong></div>
+          <div><span>Orders</span><strong>{currentMetrics.data ? currentMetrics.data.totalCount.toLocaleString() : "—"}</strong></div>
+        </div>
+      </section>
+
       <div className="dashboard-charts-row">
         <div className="chart-card ">
           <div className="chart-card__header">
             <div>
-              <h3 className="chart-card__title">Revenue — {PRESET_LABELS[preset]}</h3>
-              <div className="chart-filter-presets" role="group" aria-label="Revenue date presets">
+              <h3 className="chart-card__title">Order Value — {PRESET_LABELS[preset]}</h3>
+              <div className="chart-filter-presets" role="group" aria-label="Order value date presets">
                 {["today", "week", "month", "year"].map((option) => (
                   <button key={option} type="button" className={preset === option ? "is-active" : ""} onClick={() => setPreset(option)}>
                     {option === "today" ? "Today" : option === "week" ? "This Week" : option === "month" ? "This Month" : "This Year"}
+                  </button>
+                ))}
+              </div>
+              <div className="chart-filter-presets chart-granularity" role="group" aria-label="Chart time grouping">
+                {["day", "week", "month"].map((option) => (
+                  <button key={option} type="button" className={granularity === option ? "is-active" : ""} aria-pressed={granularity === option} onClick={() => setGranularity(option)}>
+                    {option === "day" ? "Daily" : option === "week" ? "Weekly" : "Monthly"}
                   </button>
                 ))}
               </div>
@@ -229,9 +295,13 @@ useEffect(() => {
                 <MdDownload /> {exporting ? "Exporting…" : "Export Delivered"}
               </button>
               {selectedRangeTooLarge && <small className="chart-range-error">Select a range of {MAX_RANGE_DAYS} days or less.</small>}
+              <small>Dates use UTC. Order value includes all order statuses.</small>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
+          {!validRange ? <p className="chart-empty">Choose a valid date range.</p>
+            : currentMetrics.loading ? <p className="chart-empty">Loading analytics…</p>
+            : currentMetrics.error ? <div className="chart-error" role="alert"><p>{currentMetrics.error}</p><button type="button" onClick={() => setRefreshKey((key) => key + 1)}>Try again</button></div>
+            : <ResponsiveContainer width="100%" height={240}>
             <LineChart data={revenueData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2D9CC" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#8A8A8A" }} axisLine={false} tickLine={false} />
@@ -242,12 +312,12 @@ useEffect(() => {
                 dot={{ fill: LIME, r: 4, strokeWidth: 0 }}
                 activeDot={{ r: 6, fill: GREEN }} />
             </LineChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer>}
         </div>
 
         <div className="chart-card ">
           <h3 className="chart-card__title">Order Status</h3>
-          {statusData.length > 0 ? (
+          {currentMetrics.loading ? <p className="chart-empty">Loading analytics…</p> : currentMetrics.error || !validRange ? <p className="chart-empty">Status data unavailable</p> : statusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={statusData} cx="50%" cy="42%" innerRadius={58} outerRadius={86}
