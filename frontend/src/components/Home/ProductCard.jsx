@@ -17,11 +17,11 @@ const ProductCard = ({ product }) => {
       className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-brand-100 bg-cream-50 text-earth-900 transition-colors hover:border-brand-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
       to={`/product/${product._id}`}
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-white">
+      <div className="relative aspect-square overflow-hidden bg-white">
         <img
           src={product.images[0]?.url}
           alt={product.name}
-          className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03] sm:p-5"
+          className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
         />
         {product.stock < 1 && (
           <span className="absolute left-3 top-3 rounded-full border border-red-200 bg-white px-3 py-1 font-body text-xs font-semibold text-red-700">
