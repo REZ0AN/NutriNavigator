@@ -7,7 +7,7 @@ import MetaData from "../layouts/Header/MetaData";
 import Loader from "../layouts/Loader/Loader";
 import { loginUser, registerUser, clearUserError } from "../../store/slices/userSlice";
 import { toastifyOptions } from "../../utils/toastify";
-import "./Login.css";
+import { AuthShell, AuthField, authFormClass, authInputClass, authSubmitClass } from "./AuthShell";
 
 const Login = () => {
   const dispatch = useDispatch();
@@ -67,32 +67,23 @@ useEffect(() => {
   return (
     <>
       <MetaData title="Sign In" />
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-tabs">
-            <button className={`auth-tab ${tab === "login" ? "auth-tab--active" : ""}`} onClick={() => setTab("login")}>Sign In</button>
-            <button className={`auth-tab ${tab === "signup" ? "auth-tab--active" : ""}`} onClick={() => setTab("signup")}>Sign Up</button>
-            <div className={`auth-tab-indicator ${tab === "signup" ? "auth-tab-indicator--right" : ""}`} />
+      <AuthShell>
+          <div className="relative grid grid-cols-2 border-b border-admin-border bg-cream-50">
+            <button type="button" className={`relative z-10 p-4 font-body text-sm font-semibold ${tab === "login" ? "text-brand-900" : "text-earth-600"}`} onClick={() => setTab("login")}>Sign In</button>
+            <button type="button" className={`relative z-10 p-4 font-body text-sm font-semibold ${tab === "signup" ? "text-brand-900" : "text-earth-600"}`} onClick={() => setTab("signup")}>Sign Up</button>
+            <div aria-hidden="true" className={`absolute bottom-0 left-0 h-[3px] w-1/2 rounded-t bg-brand-900 transition-transform ${tab === "signup" ? "translate-x-full" : ""}`} />
           </div>
 
           {tab === "login" && (
-            <form className="auth-form" onSubmit={handleLogin}>
-              <div className="auth-field">
-                <MdMailOutline className="auth-field__icon" />
-                <input type="email" placeholder="Email address" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
-              </div>
-              <div className="auth-field">
-                <MdLockOpen className="auth-field__icon" />
-                <input type="password" placeholder="Password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
-              </div>
-              <Link to="/password/forgot" className="auth-forgot">Forgot Password?</Link>
-              <button type="submit" className="btn btn--primary auth-submit">Sign In</button>
+            <form className={authFormClass} onSubmit={handleLogin}>
+              <AuthField label="Email address" icon={MdMailOutline}><input className={authInputClass} type="email" placeholder="Email address" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} /></AuthField>
+              <AuthField label="Password" icon={MdLockOpen}><input className={authInputClass} type="password" placeholder="Password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} /></AuthField>
+              <Link to="/password/forgot" className="-mt-2 text-right font-body text-xs font-medium text-brand-900 hover:underline">Forgot Password?</Link>
+              <button type="submit" className={authSubmitClass}>Sign In</button>
               {showResend && (
-  <div className="auth-resend-notice">
-    <p>Your email is not verified.</p>
-    <Link to="/resend-verification" className="auth-resend-link">
-      Resend verification email →
-    </Link>
+  <div className="flex flex-col gap-2 rounded-lg border border-amber-600 bg-amber-50 px-4 py-3 text-center">
+    <p className="font-body text-xs font-medium text-amber-800">Your email is not verified.</p>
+    <Link to="/resend-verification" className="font-body text-xs font-semibold text-amber-800 underline hover:text-brand-900">Resend verification email →</Link>
   </div>
 )}
             </form>
@@ -100,38 +91,28 @@ useEffect(() => {
 
           {tab === "signup" && (
               regSuccess ? (
-                <div className="auth-form">
-                  <div className="auth-success-msg">
-                    <MdCheckCircle className="auth-success-icon" />
-                    <p>{regSuccess}</p>
-                    <button className="btn btn--secondary" onClick={() => { setRegSuccess(""); setTab("login"); }}>
+                <div className={authFormClass}>
+                  <div className="flex flex-col items-center gap-4 py-4 text-center">
+                    <MdCheckCircle aria-hidden="true" className="text-5xl text-green-700" />
+                    <p className="font-body text-sm leading-relaxed text-earth-600">{regSuccess}</p>
+                    <button className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border-2 px-6 py-2.5 font-body text-sm font-semibold tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50 border-brand-300 bg-white text-brand-900 hover:border-brand-900 hover:bg-cream-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700" onClick={() => { setRegSuccess(""); setTab("login"); }}>
                       Back to Sign In
                     </button>
                   </div>
                 </div>
               ) : (
-            <form className="auth-form" onSubmit={handleRegister} encType="multipart/form-data">
-              <div className="auth-field">
-                <MdFace className="auth-field__icon" />
-                <input type="text" placeholder="Full name" required value={regName} onChange={(e) => setRegName(e.target.value)} />
+            <form className={authFormClass} onSubmit={handleRegister} encType="multipart/form-data">
+              <AuthField label="Full name" icon={MdFace}><input className={authInputClass} type="text" placeholder="Full name" required value={regName} onChange={(e) => setRegName(e.target.value)} /></AuthField>
+              <AuthField label="Email address" icon={MdMailOutline}><input className={authInputClass} type="email" placeholder="Email address" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} /></AuthField>
+              <AuthField label="Password" icon={MdLockOpen}><input className={authInputClass} type="password" placeholder="Password (min 8 chars)" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} /></AuthField>
+              <div className="flex items-center gap-4">
+                <img src={avatarPreview} alt="Avatar preview" className="h-[50px] w-[50px] rounded-full border-2 border-brand-300 object-cover" />
+                <label className="flex-1 cursor-pointer rounded-lg border border-brand-900 px-4 py-2 text-center font-body text-sm font-medium text-brand-900 hover:bg-brand-900 hover:text-white">Choose Avatar<input className="sr-only" type="file" accept="image/*" onChange={handleAvatarChange} /></label>
               </div>
-              <div className="auth-field">
-                <MdMailOutline className="auth-field__icon" />
-                <input type="email" placeholder="Email address" required value={regEmail} onChange={(e) => setRegEmail(e.target.value)} />
-              </div>
-              <div className="auth-field">
-                <MdLockOpen className="auth-field__icon" />
-                <input type="password" placeholder="Password (min 8 chars)" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
-              </div>
-              <div className="auth-avatar">
-                <img src={avatarPreview} alt="Avatar preview" className="auth-avatar__preview" />
-                <label className="auth-avatar__label">Choose Avatar<input type="file" accept="image/*" onChange={handleAvatarChange} /></label>
-              </div>
-              <button type="submit" className="btn btn--primary auth-submit">Create Account</button>
+              <button type="submit" className={authSubmitClass}>Create Account</button>
             </form>
           ))}
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 };

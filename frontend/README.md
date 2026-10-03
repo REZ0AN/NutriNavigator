@@ -32,30 +32,27 @@ npm run build
 
 ## Current style and layout
 
-This section describes the UI as implemented during the progressive redesign.
-The shared Tailwind theme is in [`tailwind.config.js`](tailwind.config.js).
-Legacy screens still use [`src/styles/tokens.css`](src/styles/tokens.css),
-[`src/styles/reset.css`](src/styles/reset.css), and CSS next to each component.
-`src/index.js` loads both styling systems; Tailwind's preflight reset is
-disabled so existing screens keep their element defaults. `src/App.jsx`
-selects the storefront or admin shell by route.
+The frontend uses Tailwind utilities in JSX. The shared theme is in
+[`tailwind.config.js`](tailwind.config.js); [`src/styles/tailwind.css`](src/styles/tailwind.css)
+is the required Tailwind entry and contains only minimal global base rules.
+Tailwind preflight supplies the element reset. `src/App.jsx` selects the
+storefront or admin shell by route.
 
 ### Visual language
 
 | Element | Current treatment |
 | --- | --- |
-| Brand | Forest green (`brand.900`, `#173525`) anchors navigation and primary actions; leaf and sage tones add restrained accents. Legacy CSS tokens now match the Tailwind palette. |
+| Brand | Forest green (`brand.900`, `#173525`) anchors navigation and primary actions; leaf and sage tones add restrained accents. |
 | Surfaces | Storefront pages use warm cream (`#F8F6F0`) and warm white (`#FFFEFA`). Admin pages use a separate neutral canvas (`#F7F9F7`). |
 | Text | Near-black body text with softer gray for supporting copy; green headings and prices. |
 | Type | DM Serif Display for headings; Outfit for body text, labels, controls, and most admin headings. Both load from Google Fonts, with local fallbacks. |
 | Spacing and shape | An 8-point-based spacing token scale, rounded cards (typically 20–28px), pill buttons and badges, and light shadows. |
 | Feedback | Green, red, amber, and blue semantic colors for status, errors, warnings, and information. |
 
-Migrated controls use `src/components/ui/Button.jsx` variants. Legacy screens
-still use the global `.btn` variants from `reset.css`. The two systems coexist
-until each screen is migrated and checked. Legacy primary buttons now use forest
-green with white text. Shared CSS gives keyboard focus a visible outline and
-honors reduced-motion preferences.
+Controls use Tailwind classes in JSX, with reusable variants in
+`src/components/ui/Button.jsx` and a shared auth shell in
+`src/components/Login/AuthShell.jsx`. The Tailwind base layer gives keyboard
+focus a visible outline and honors reduced-motion preferences.
 
 ### Page shells
 
@@ -71,7 +68,7 @@ honors reduced-motion preferences.
   styles; wide tables scroll horizontally. At 768px and below, main padding
   shrinks and the sidebar becomes a menu drawer.
 - **Content width:** Most storefront content is centered within the
-  `--content-max` value of 1200px, with page-specific horizontal padding.
+  `max-w-content` value of 1200px, with responsive horizontal padding.
 
 ### Main screen compositions
 
@@ -79,15 +76,15 @@ honors reduced-motion preferences.
 | --- | --- |
 | Home | Full-width photographic hero with a dark overlay, left-aligned headline and actions on desktop; featured product grid on a warm cream background; full-width forest dietary recommendation callout. Hero copy and actions center on narrow screens. |
 | Products and detail | Catalog has a 256px sticky filter column and an auto-filling product grid. Product cards use square, edge-to-edge cover images above rating, price, and action. Detail has a two-column gallery and information area, followed by a responsive review grid. |
-| Search and recommendation | Search has its own page styles. The dietary page has a photographic hero with a white form card overlapping it, then a grid of food result cards. |
+| Search and recommendation | Search uses Tailwind classes around the existing photograph. The dietary page has a photographic hero with a white form card overlapping it, then a grid of food result cards. |
 | Account | Login and related authentication screens use a background photo with a dark overlay and a centered white card. Profile pages use their own card layout. |
 | Cart and checkout | Cart items sit beside a sticky 340px summary. The confirmation page has a similar two-column layout with a 320px summary. Shipping and payment use centered cards; checkout steps show the active and completed stage. |
 | Orders and admin | Customer orders use a horizontally scrollable table and detail cards. The admin dashboard uses statistic cards, interactive charts, and shared tables; other admin pages use the same sidebar and form/table styles. |
 
 ### Responsive behavior
 
-Breakpoints are defined by each component rather than one global media-query
-scale. The header menu and product detail columns change at 768px; catalog
+Breakpoints use Tailwind responsive utilities and component-specific values.
+The header menu and product detail columns change at 768px; catalog
 filters move above the product grid at 900px and become two columns at 600px;
 the cart and confirmation summaries stack below the main content at 860px
 and 768px respectively. The footer changes from four columns to two at 900px
@@ -97,28 +94,22 @@ scrolling for data tables.
 
 ### Where to edit
 
-- Migrated storefront theme colors, fonts, and layout values:
+- Theme colors, fonts, breakpoints, and layout values:
   [`tailwind.config.js`](tailwind.config.js).
-- Legacy global colors, fonts, spacing, radius, shadows, and layout constants:
-  [`src/styles/tokens.css`](src/styles/tokens.css).
-- Base element rules and shared buttons:
-  [`src/styles/reset.css`](src/styles/reset.css).
+- Tailwind directives and minimal base rules:
+  [`src/styles/tailwind.css`](src/styles/tailwind.css).
 - Storefront chrome: `src/components/layouts/Header/` and
   `src/components/layouts/Footer/`.
-- Admin shell and shared admin controls: `src/components/Admin/AdminLayout.css`
-  and `src/components/Admin/Sidebar/`.
-- Screens still awaiting migration use a `.css` file beside the component;
-  migrated screens use Tailwind classes in JSX.
+- Admin shell and shared admin controls: `src/components/Admin/AdminLayout.jsx`
+  and `src/components/Admin/Sidebar/Sidebar.jsx`.
+- Screen styling: Tailwind classes in each JSX component.
 
 ### Redesign progress
 
-The home page, shared product card, storefront header, footer, and admin
-dashboard now use Tailwind utilities. `Button`, `Container`, `MetricCard`,
-`AnalyticsPanel`, and `AnalyticsToolbar` are shared presentation components.
-Unused stylesheets for Home, ProductCard, Header, Footer, ResetPassword, and
-the dashboard have been removed. Their current styles live in JSX with
-Tailwind classes. Other admin pages and storefront flows still import their
-existing CSS while awaiting migration.
+All component stylesheets have been migrated to Tailwind classes in JSX and
+removed. `Button`, `Container`, `AuthShell`, `MetricCard`, `AnalyticsPanel`, and
+`AnalyticsToolbar` are shared presentation components. The only local CSS file
+is Tailwind's required entry stylesheet.
 
 ## Use cases and user flows
 

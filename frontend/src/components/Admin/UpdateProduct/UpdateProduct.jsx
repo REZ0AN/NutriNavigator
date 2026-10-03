@@ -8,7 +8,6 @@ import Loader from "../../layouts/Loader/Loader";
 import AdminLayout from "../AdminLayout";
 import { getProductDetails, updateProduct, resetProductOps, clearProductOpsError } from "../../../store/slices/productSlice";
 import { toastifyOptions } from "../../../utils/toastify";
-import "../NewProduct/NewProduct.css";
 
 const CATEGORIES = ["Fruits", "Vegetables", "Dairy", "Grains", "Protein", "Beverages", "Snacks"];
 
@@ -69,27 +68,27 @@ const UpdateProduct = () => {
   return (
     <AdminLayout>
       <MetaData title="Update Product — Admin" />
-      <h1 className="admin-page-title">Update Product</h1>
-      <div className="admin-form-card">
-        <form className="admin-form" onSubmit={handleSubmit} encType="multipart/form-data">
+      <h1 className="mb-6 font-body text-2xl font-bold text-brand-900">Update Product</h1>
+      <div className="max-w-[600px] rounded-card border border-admin-border bg-white p-5 shadow-sm sm:p-8">
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit} encType="multipart/form-data">
           {[
             { icon: MdDriveFileRenameOutline, placeholder: "Product name", value: name,  setter: setName,  type: "text" },
             { icon: MdAttachMoney,            placeholder: "Price (৳)",    value: price, setter: setPrice, type: "number" },
           ].map(({ icon: Icon, placeholder, value, setter, type }) => (
-            <div key={placeholder} className="admin-field">
-              <div className="admin-input-wrap">
+            <div key={placeholder} className="flex flex-col gap-2 [&_label]:font-body [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-600">
+              <div className="flex items-center gap-3 rounded-lg border border-brand-300 bg-admin-canvas px-4 py-3 focus-within:border-brand-700 focus-within:bg-white [&_svg]:shrink-0 [&_svg]:text-lg [&_svg]:text-admin-muted [&_input]:min-w-0 [&_input]:flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:font-body [&_input]:text-sm [&_input]:text-earth-900 [&_input]:outline-none [&_select]:min-w-0 [&_select]:flex-1 [&_select]:bg-transparent [&_select]:font-body [&_select]:text-sm [&_select]:text-earth-900 [&_textarea]:min-w-0 [&_textarea]:flex-1 [&_textarea]:bg-transparent [&_textarea]:font-body [&_textarea]:text-sm [&_textarea]:text-earth-900">
                 <Icon /><input type={type} placeholder={placeholder} required value={value} onChange={(e) => setter(e.target.value)} />
               </div>
             </div>
           ))}
-          <div className="admin-field">
-            <div className="admin-input-wrap" style={{ alignItems: "flex-start" }}>
+          <div className="flex flex-col gap-2 [&_label]:font-body [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-600">
+            <div className="flex items-center gap-3 rounded-lg border border-brand-300 bg-admin-canvas px-4 py-3 focus-within:border-brand-700 focus-within:bg-white [&_svg]:shrink-0 [&_svg]:text-lg [&_svg]:text-admin-muted [&_input]:min-w-0 [&_input]:flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:font-body [&_input]:text-sm [&_input]:text-earth-900 [&_input]:outline-none [&_select]:min-w-0 [&_select]:flex-1 [&_select]:bg-transparent [&_select]:font-body [&_select]:text-sm [&_select]:text-earth-900 [&_textarea]:min-w-0 [&_textarea]:flex-1 [&_textarea]:bg-transparent [&_textarea]:font-body [&_textarea]:text-sm [&_textarea]:text-earth-900" style={{ alignItems: "flex-start" }}>
               <MdDescription style={{ marginTop: "2px" }} />
               <textarea rows={3} placeholder="Product description" required value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
           </div>
-          <div className="admin-field">
-            <div className="admin-input-wrap">
+          <div className="flex flex-col gap-2 [&_label]:font-body [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-600">
+            <div className="flex items-center gap-3 rounded-lg border border-brand-300 bg-admin-canvas px-4 py-3 focus-within:border-brand-700 focus-within:bg-white [&_svg]:shrink-0 [&_svg]:text-lg [&_svg]:text-admin-muted [&_input]:min-w-0 [&_input]:flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:font-body [&_input]:text-sm [&_input]:text-earth-900 [&_input]:outline-none [&_select]:min-w-0 [&_select]:flex-1 [&_select]:bg-transparent [&_select]:font-body [&_select]:text-sm [&_select]:text-earth-900 [&_textarea]:min-w-0 [&_textarea]:flex-1 [&_textarea]:bg-transparent [&_textarea]:font-body [&_textarea]:text-sm [&_textarea]:text-earth-900">
               <MdCategory />
               <select required value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option value="">Select category</option>
@@ -97,22 +96,22 @@ const UpdateProduct = () => {
               </select>
             </div>
           </div>
-          <div className="admin-field">
-            <div className="admin-input-wrap">
+          <div className="flex flex-col gap-2 [&_label]:font-body [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-600">
+            <div className="flex items-center gap-3 rounded-lg border border-brand-300 bg-admin-canvas px-4 py-3 focus-within:border-brand-700 focus-within:bg-white [&_svg]:shrink-0 [&_svg]:text-lg [&_svg]:text-admin-muted [&_input]:min-w-0 [&_input]:flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:font-body [&_input]:text-sm [&_input]:text-earth-900 [&_input]:outline-none [&_select]:min-w-0 [&_select]:flex-1 [&_select]:bg-transparent [&_select]:font-body [&_select]:text-sm [&_select]:text-earth-900 [&_textarea]:min-w-0 [&_textarea]:flex-1 [&_textarea]:bg-transparent [&_textarea]:font-body [&_textarea]:text-sm [&_textarea]:text-earth-900">
               <MdInventory /><input type="number" placeholder="Stock quantity" required value={stock} onChange={(e) => setStock(e.target.value)} />
             </div>
           </div>
-          <div className="admin-field">
-            <label className="admin-upload-label">
+          <div className="flex flex-col gap-2 [&_label]:font-body [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-600">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-5 py-3 font-body text-sm text-brand-900 hover:border-brand-900 hover:bg-cream-100">
               📷 Replace Images
               <input type="file" accept="image/*" multiple onChange={handleImages} style={{ display: "none" }} />
             </label>
-            <div className="admin-image-previews">
+            <div className="mt-3 flex flex-wrap gap-3 [&_img]:h-[78px] [&_img]:w-[78px] [&_img]:rounded-lg [&_img]:border [&_img]:border-admin-border [&_img]:bg-cream-50 [&_img]:p-1 [&_img]:object-contain">
               {oldImages.map((img, i) => <img key={`old-${i}`} src={img.url} alt="existing" />)}
               {previews.map((src, i)   => <img key={`new-${i}`} src={src}    alt="new" />)}
             </div>
           </div>
-          <button type="submit" className="btn btn--primary" disabled={loading}>Update Product</button>
+          <button type="submit" className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border-2 px-6 py-2.5 font-body text-sm font-semibold tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50 border-transparent bg-brand-900 text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700" disabled={loading}>Update Product</button>
         </form>
       </div>
     </AdminLayout>

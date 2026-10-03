@@ -5,6 +5,7 @@ import { MdMailOutline } from "react-icons/md";
 import MetaData from "../layouts/Header/MetaData";
 import { resendVerification, clearUserError } from "../../store/slices/userSlice";
 import { toastifyOptions } from "../../utils/toastify";
+import { AuthShell, AuthHeader, AuthField, authFormClass, authInputClass, authSubmitClass } from "../Login/AuthShell";
 
 const ResendVerification = () => {
   const dispatch = useDispatch();
@@ -28,28 +29,23 @@ const ResendVerification = () => {
   return (
     <>
       <MetaData title="Resend Verification" />
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-card__header">
-            <h2>Resend Verification</h2>
-            <p>{sent ? "Check your inbox for the new link." : "Enter your email to receive a new verification link."}</p>
-          </div>
+      <AuthShell>
+          <AuthHeader title="Resend Verification">{sent ? "Check your inbox for the new link." : "Enter your email to receive a new verification link."}</AuthHeader>
           {!sent && (
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <div className="auth-field">
-                <MdMailOutline className="auth-field__icon" />
+            <form className={authFormClass} onSubmit={handleSubmit}>
+              <AuthField label="Email address" icon={MdMailOutline}>
                 <input
                   type="email" placeholder="Your email address" required
                   value={email} onChange={(e) => setEmail(e.target.value)}
+                  className={authInputClass}
                 />
-              </div>
-              <button type="submit" className="btn btn--primary auth-submit" disabled={loading}>
+              </AuthField>
+              <button type="submit" className={authSubmitClass} disabled={loading}>
                 Send Verification Email
               </button>
             </form>
           )}
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 };

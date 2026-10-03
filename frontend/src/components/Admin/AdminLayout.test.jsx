@@ -14,9 +14,9 @@ test("admin mobile menu opens and closes after navigation", () => {
   const openButton = screen.getByRole("button", { name: "Open admin menu" });
   fireEvent.click(openButton);
   expect(screen.getByRole("button", { name: "Close admin menu", expanded: true })).toBeInTheDocument();
-  expect(document.getElementById("admin-navigation")).toHaveClass("admin-sidebar--open");
+  expect(document.getElementById("admin-navigation")).toHaveClass("translate-x-0");
 
   fireEvent.click(screen.getByRole("link", { name: "Orders" }));
-  expect(document.getElementById("admin-navigation")).not.toHaveClass("admin-sidebar--open");
+  expect(document.getElementById("admin-navigation")).toHaveClass("-translate-x-full");
   expect(screen.getByRole("heading", { name: "Dashboard content" })).toBeInTheDocument();
 });

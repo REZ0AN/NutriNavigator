@@ -1,8 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/**/*.{js,jsx}"],
-  // Keep the existing reset in control until each screen has migrated.
-  corePlugins: { preflight: false },
+  content: ["./src/**/*.{js,jsx}", "./public/index.html"],
   theme: {
     extend: {
       colors: {
