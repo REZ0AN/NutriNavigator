@@ -40,12 +40,21 @@ export const fetchAdminOrderDetails = createAsyncThunk("orders/adminDetails", as
   }
 });
 
-export const fetchAllOrders = createAsyncThunk("orders/getAll", async (_, { rejectWithValue }) => {
+export const fetchAllOrders = createAsyncThunk("orders/getAll", async (page = 1, { rejectWithValue }) => {
   try {
-    const { data } = await axios.get("/api/v1/admin/orders");
-    return { orders: data.orders, totalAmount: data.totalAmount };
+    const { data } = await axios.get("/api/v1/admin/orders", { params: { page } });
+    return { orders: data.orders, totalAmount: data.totalAmount, totalCount: data.totalCount, page: data.page, hasNextPage: data.hasNextPage };
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || "Failed");
+  }
+});
+
+export const fetchOrderDashboardMetrics = createAsyncThunk("orders/dashboardMetrics", async (range, { rejectWithValue }) => {
+  try {
+    const { data } = await axios.get("/api/v1/totalamount", { params: { ...range, timezone: "UTC" } });
+    return data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || "Unable to load dashboard metrics");
   }
 });
 
@@ -108,7 +117,7 @@ const orderDetailsSlice = createSlice({
 
 const allOrdersSlice = createSlice({
   name: "allOrders",
-  initialState: { loading: false, orders: [], totalAmount: 0, isDeleted: false, isUpdated: false, error: null },
+  initialState: { loading: false, orders: [], totalAmount: 0, totalCount: 0, page: 1, hasNextPage: false, dashboardMetrics: null, isDeleted: false, isUpdated: false, error: null },
   reducers: {
     resetOrderOps: (state) => { state.isDeleted = false; state.isUpdated = false; },
     clearAllOrdersError: (state) => { state.error = null; },
@@ -116,11 +125,20 @@ const allOrdersSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchAllOrders.pending, (state) => { state.loading = true; })
-      .addCase(fetchAllOrders.fulfilled, (state, { payload }) => { state.loading = false; state.orders = payload.orders; state.totalAmount = payload.totalAmount; })
+      .addCase(fetchAllOrders.fulfilled, (state, { payload }) => { state.loading = false; state.orders = payload.orders; state.totalAmount = payload.totalAmount; state.totalCount = payload.totalCount ?? payload.orders.length; state.page = payload.page ?? 1; state.hasNextPage = payload.hasNextPage ?? false; })
       .addCase(fetchAllOrders.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
-      .addCase(updateOrderStatus.fulfilled, (state) => { state.isUpdated = true; })
+      .addCase(fetchOrderDashboardMetrics.fulfilled, (state, { payload }) => { state.dashboardMetrics = payload; })
+      .addCase(fetchOrderDashboardMetrics.rejected, (state, { payload }) => { state.error = payload; })
+      .addCase(updateOrderStatus.fulfilled, (state, { payload }) => {
+        state.isUpdated = true;
+        if (payload?.order) state.orders = state.orders.map((order) => order._id === payload.order._id ? payload.order : order);
+      })
       .addCase(updateOrderStatus.rejected, (state, { payload }) => { state.error = payload; })
-      .addCase(deleteOrder.fulfilled, (state) => { state.isDeleted = true; })
+      .addCase(deleteOrder.fulfilled, (state, { payload }) => {
+        state.isDeleted = true;
+        state.orders = state.orders.filter((order) => order._id !== payload);
+        state.totalCount = Math.max(0, state.totalCount - 1);
+      })
       .addCase(deleteOrder.rejected, (state, { payload }) => { state.error = payload; });
   },
 });

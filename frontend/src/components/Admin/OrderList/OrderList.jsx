@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -10,18 +10,21 @@ import { toastifyOptions } from "../../../utils/toastify";
 
 const OrderList = () => {
   const dispatch  = useDispatch();
-  const { orders, isDeleted, error } = useSelector((s) => s.allOrdersR);
+  const { orders, isDeleted, error, page, hasNextPage, loading } = useSelector((s) => s.allOrdersR);
+  const [requestedPage, setRequestedPage] = useState(1);
 
 useEffect(() => {
   if (error)     { toast.error(error, { ...toastifyOptions }); dispatch(clearAllOrdersError()); }
-  if (isDeleted) { toast.success("Order deleted", { ...toastifyOptions }); dispatch(resetOrderOps()); }
-}, [error, isDeleted, dispatch]);
-
-useEffect(() => {
-  if(orders.length === 0) {
-    dispatch(fetchAllOrders());
+  if (isDeleted) {
+    toast.success("Order deleted", { ...toastifyOptions });
+    dispatch(resetOrderOps());
+    // The delete response contains only the ID, so reload the page to keep
+    // aggregate totals and pagination metadata consistent with the server.
+    dispatch(fetchAllOrders(requestedPage));
   }
-}, [dispatch, orders.length]);
+}, [error, isDeleted, dispatch, requestedPage]);
+
+useEffect(() => { dispatch(fetchAllOrders(requestedPage)); }, [dispatch, requestedPage]);
   return (
     <AdminLayout>
       <MetaData title="All Orders — Admin" />
@@ -48,6 +51,11 @@ useEffect(() => {
             ))}
           </tbody>
         </table>
+      </div>
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", justifyContent: "center", marginTop: "1rem" }}>
+        <button type="button" disabled={loading || page <= 1} onClick={() => setRequestedPage((current) => current - 1)}>Previous</button>
+        <span>Page {page}</span>
+        <button type="button" disabled={loading || !hasNextPage} onClick={() => setRequestedPage((current) => current + 1)}>Next</button>
       </div>
     </AdminLayout>
   );

@@ -119,7 +119,16 @@ const productsListSlice = createSlice({
       .addCase(getProducts.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
       .addCase(getAllAdminProducts.pending, (state) => { state.loading = true; })
       .addCase(getAllAdminProducts.fulfilled, (state, { payload }) => { state.loading = false; state.products = payload; })
-      .addCase(getAllAdminProducts.rejected, (state, { payload }) => { state.loading = false; state.error = payload; });
+      .addCase(getAllAdminProducts.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
+      .addCase(createProduct.fulfilled, (state, { payload }) => {
+        if (payload?.product) state.products = [payload.product, ...state.products];
+      })
+      .addCase(updateProduct.fulfilled, (state, { payload }) => {
+        if (payload?.product) state.products = state.products.map((product) => product._id === payload.product._id ? payload.product : product);
+      })
+      .addCase(deleteProduct.fulfilled, (state, { payload }) => {
+        state.products = state.products.filter((product) => product._id !== payload);
+      });
   },
 });
 
@@ -145,7 +154,10 @@ const productOpsSlice = createSlice({
 extraReducers: (builder) => {
   builder
     .addCase(createProduct.pending,   (state) => { state.loading = true;  state.error = null; })
-    .addCase(createProduct.fulfilled, (state) => { state.loading = false; state.success = true; })
+    .addCase(createProduct.fulfilled, (state) => {
+      state.loading = false;
+      state.success = true;
+    })
     .addCase(createProduct.rejected,  (state, { payload }) => { state.loading = false; state.error = payload; })
 
     .addCase(updateProduct.pending,   (state) => { state.loading = true;  state.error = null; })

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import {
@@ -15,7 +15,7 @@ import MetaData from "../../layouts/Header/MetaData";
 import Loader from "../../layouts/Loader/Loader";
 import AdminLayout from "../AdminLayout";
 import { getAllAdminProducts } from "../../../store/slices/productSlice";
-import { fetchAllOrders } from "../../../store/slices/orderSlice";
+import { fetchAllOrders, fetchOrderDashboardMetrics } from "../../../store/slices/orderSlice";
 import { getAllUsers } from "../../../store/slices/userSlice";
 import "./Dashboard.css";
 
@@ -26,6 +26,7 @@ const BLUE   = "#1A5F8A";
 const PURPLE = "#7B3F9E";
 const PIE_COLORS = { processing: AMBER, shipped: BLUE, delivered: GREEN };
 const PRESET_LABELS = { today: "Today", week: "This Week", month: "This Month", year: "This Year", custom: "Custom Range" };
+const MAX_RANGE_DAYS = 366;
 
 const pad = (value) => String(value).padStart(2, "0");
 const formatDateInput = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -66,33 +67,48 @@ const downloadDeliveredOrders = (orders, range) => {
   URL.revokeObjectURL(url);
 };
 
-const buildRevenueData = (orders = [], range) => {
+export const buildRevenueData = (orders = [], range) => {
   if (!range?.from || !range?.to || range.from > range.to) return [];
   const start = new Date(`${range.from}T00:00:00`);
   const end = new Date(`${range.to}T00:00:00`);
   const days = [];
+  const revenueByDate = new Map();
   for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dateStr = formatDateInput(d);
     days.push({
       label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      dateStr: formatDateInput(d),
+      dateStr,
       revenue: 0,
     });
+    revenueByDate.set(dateStr, days[days.length - 1]);
   }
   orders.forEach((o) => {
     const date = formatDateInput(new Date(o.createdAt));
-    const slot = days.find((d) => d.dateStr === date);
+    const slot = revenueByDate.get(date);
     if (slot) slot.revenue += o.totalprice || 0;
   });
   return days.map(({ label, revenue }) => ({ label, revenue }));
 };
 
-const buildStatusData = (orders = []) => {
-  const counts = orders.reduce((acc, o) => {
-    const s = o.orderstatus || "processing";
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {});
-  return Object.entries(counts).map(([name, value]) => ({ name, value }));
+export const buildRevenueDataFromMetrics = (dailyRevenue = [], range) => {
+  const byDate = new Map(dailyRevenue.map(({ _id: date, totalAmount }) => [date, totalAmount]));
+  if (!range?.from || !range?.to || range.from > range.to) return [];
+  const start = new Date(`${range.from}T00:00:00.000Z`);
+  const end = new Date(`${range.to}T00:00:00.000Z`);
+  const result = [];
+  for (const date = new Date(start); date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
+    const dateKey = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+    result.push({
+      label: date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      revenue: byDate.get(dateKey) || 0,
+    });
+  }
+  return result;
+};
+
+export const isRangeTooLarge = (range, maxDays = MAX_RANGE_DAYS) => {
+  if (!range?.from || !range?.to || range.from > range.to) return false;
+  return ((new Date(`${range.to}T00:00:00`) - new Date(`${range.from}T00:00:00`)) / 86400000 + 1) > maxDays;
 };
 
 const buildStockData = (products = []) =>
@@ -117,12 +133,13 @@ const RevenueTooltip = ({ active, payload, label }) => {
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { products } = useSelector((s) => s.productsR);
-  const { orders, totalAmount, loading } = useSelector((s) => s.allOrdersR);
+  const { orders, totalAmount, totalCount, dashboardMetrics, loading } = useSelector((s) => s.allOrdersR);
   const { users } = useSelector((s) => s.adminUsersR);
   const [preset, setPreset] = useState("week");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
   const [exporting, setExporting] = useState(false);
   const selectedRange = preset === "custom" ? customRange : getPresetRange(preset);
+  const selectedRangeTooLarge = isRangeTooLarge(selectedRange);
 
 useEffect(() => {
   dispatch(getAllAdminProducts());
@@ -130,18 +147,15 @@ useEffect(() => {
   dispatch(getAllUsers());
 }, [dispatch]);
 
+useEffect(() => {
+  if (selectedRange.from && selectedRange.to && !selectedRangeTooLarge && selectedRange.from <= selectedRange.to) {
+    dispatch(fetchOrderDashboardMetrics({ from: selectedRange.from, to: selectedRange.to }));
+  }
+}, [dispatch, selectedRange.from, selectedRange.to, selectedRangeTooLarge]);
+
   const outOfStock  = products?.filter((p) => p.stock < 1).length || 0;
-  const filteredOrders = useMemo(() => {
-    if (!selectedRange.from || !selectedRange.to) return [];
-    const start = new Date(`${selectedRange.from}T00:00:00`);
-    const end = new Date(`${selectedRange.to}T23:59:59.999`);
-    return (orders || []).filter((order) => {
-      const date = new Date(order.createdAt);
-      return date >= start && date <= end;
-    });
-  }, [orders, selectedRange.from, selectedRange.to]);
-  const revenueData = buildRevenueData(filteredOrders, selectedRange);
-  const statusData  = buildStatusData(orders);
+  const revenueData = buildRevenueDataFromMetrics(dashboardMetrics?.dailyRevenue || [], selectedRange);
+  const statusData  = dashboardMetrics?.statusCounts || [];
   const stockData   = buildStockData(products);
 
   const handleCustomDate = (field, value) => {
@@ -150,7 +164,7 @@ useEffect(() => {
   };
 
   const handleExport = async () => {
-    if (!selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to) return;
+    if (!selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to || selectedRangeTooLarge) return;
     setExporting(true);
     try {
       const { data } = await axios.get("/api/v1/admin/orders/export", { params: selectedRange });
@@ -165,7 +179,7 @@ useEffect(() => {
   const stats = [
     { label: "Total Revenue", value: `৳${(totalAmount || 0).toLocaleString()}`, icon: MdWallet, color: GREEN,  bg: "#EBF7EF", link: "/admin/orders" },
     { label: "Products",      value: products?.length || 0,                      icon: MdInventory,     color: BLUE,   bg: "#E8F2FA", link: "/admin/products" },
-    { label: "Orders",        value: orders?.length || 0,                        icon: MdShoppingBag,   color: AMBER,  bg: "#FEF3E2", link: "/admin/orders" },
+    { label: "Orders",        value: totalCount ?? orders?.length ?? 0,          icon: MdShoppingBag,   color: AMBER,  bg: "#FEF3E2", link: "/admin/orders" },
     { label: "Users",         value: users?.length || 0,                         icon: MdPeople,        color: PURPLE, bg: "#F3EBF9", link: "/admin/users" },
   ];
 
@@ -211,9 +225,10 @@ useEffect(() => {
             <div className="chart-date-controls">
               <label>From<input type="date" value={customRange.from} onChange={(event) => handleCustomDate("from", event.target.value)} /></label>
               <label>To<input type="date" value={customRange.to} onChange={(event) => handleCustomDate("to", event.target.value)} /></label>
-              <button type="button" className="chart-export-button" onClick={handleExport} disabled={exporting || !selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to}>
+              <button type="button" className="chart-export-button" onClick={handleExport} disabled={exporting || !selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to || selectedRangeTooLarge}>
                 <MdDownload /> {exporting ? "Exporting…" : "Export Delivered"}
               </button>
+              {selectedRangeTooLarge && <small className="chart-range-error">Select a range of {MAX_RANGE_DAYS} days or less.</small>}
             </div>
           </div>
           <ResponsiveContainer width="100%" height={240}>

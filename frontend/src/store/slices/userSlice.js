@@ -197,9 +197,16 @@ const adminUsersSlice = createSlice({
       .addCase(getUserDetails.pending, (state) => { state.loading = true; })
       .addCase(getUserDetails.fulfilled, (state, { payload }) => { state.loading = false; state.user = payload; })
       .addCase(getUserDetails.rejected, (state, { payload }) => { state.loading = false; state.error = payload; })
-      .addCase(updateUserAdmin.fulfilled, (state) => { state.isUpdated = true; })
+      .addCase(updateUserAdmin.fulfilled, (state, { payload }) => {
+        state.isUpdated = true;
+        if (payload?.user) state.users = state.users.map((user) => user._id === payload.user._id ? payload.user : user);
+        if (payload?.user) state.user = payload.user;
+      })
       .addCase(updateUserAdmin.rejected, (state, { payload }) => { state.error = payload; })
-      .addCase(deleteUser.fulfilled, (state) => { state.isDeleted = true; })
+      .addCase(deleteUser.fulfilled, (state, { payload }) => {
+        state.isDeleted = true;
+        state.users = state.users.filter((user) => user._id !== payload);
+      })
       .addCase(deleteUser.rejected, (state, { payload }) => { state.error = payload; });
   },
 });
