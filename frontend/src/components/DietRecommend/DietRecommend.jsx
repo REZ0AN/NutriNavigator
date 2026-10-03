@@ -24,7 +24,7 @@ const DietRecommend = () => {
   const [weight,  setWeight]  = useState("");
   const [gender,  setGender]  = useState("0");
   const [conditions, setConditions] = useState(defaultConditions);
-  const [recommendedFoods, setRecommendedFoods] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const toggleCondition = (key, yesValue) => {
@@ -39,14 +39,14 @@ const DietRecommend = () => {
     }
     setLoading(true);
     try {
-      const disease = HEALTH_CONDITIONS.map(({ key }) => conditions[key]);
-      const { data: mlData } = await axios.post("/api/v1/diet/recommend", {
+      const diseases = HEALTH_CONDITIONS.map(({ key }) => conditions[key]);
+      const { data: recommendationData } = await axios.post("/api/v1/diet/recommend", {
         age: Number(age), height: Number(height), weight: Number(weight),
-        gender: Number(gender), diesease: disease,
+        gender: Number(gender), diseases,
       });
 
-      setRecommendedFoods(mlData.recommended_foods || []);
-      if (mlData.recommended_foods.length === 0) {
+      setRecommendations(recommendationData.recommendations || []);
+      if (!recommendationData.recommendations?.length) {
         toast.info("No matching products found for your profile.", { ...toastifyOptions });
       }
     } catch (err) {
@@ -119,14 +119,26 @@ const DietRecommend = () => {
             </button>
           </form>
 
-          {recommendedFoods.length > 0 && (
+          {recommendations.length > 0 && (
             <div className="diet-results">
               <h3 className="diet-results__title">Recommended for You</h3>
               <div className="diet-results__grid">
-                {recommendedFoods.map((food) => (
-                  <Link key={food} to={`/products/${food}`} className="diet-food-chip">
-                    {food}
-                  </Link>
+                {recommendations.map(({ name, reason, product }) => (
+                  product ? (
+                    <Link key={name} to={product.href} className="diet-food-card">
+                      <span className="diet-food-card__badge">Available in our catalog</span>
+                      <strong className="diet-food-card__name">{name}</strong>
+                      <small className="diet-food-card__reason">{reason}</small>
+                      <span className="diet-food-card__link">View product <span aria-hidden="true">→</span></span>
+                    </Link>
+                  ) : (
+                    <div key={name} className="diet-food-card diet-food-card--unavailable">
+                      <span className="diet-food-card__badge">Not in our catalog</span>
+                      <strong className="diet-food-card__name">{name}</strong>
+                      <small className="diet-food-card__reason">{reason}</small>
+                      <em className="diet-food-card__note">We found this recommendation, but it is not currently available to buy here.</em>
+                    </div>
+                  )
                 ))}
               </div>
             </div>

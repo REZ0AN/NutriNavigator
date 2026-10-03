@@ -26,6 +26,7 @@ import ForgotPassword     from "./components/ForgotPassword/ForgotPassword";
 import ResetPassword      from "./components/ResetPassword/ResetPassword";
 import VerifyEmail        from "./components/VerifyEmail/VerifyEmail";
 import ResendVerification from "./components/ResendVerification/ResendVerification";
+import ErrorPage        from "./components/errors/ErrorPage";
 
 import Cart           from "./components/Cart/Cart";
 import ShippingInfo   from "./components/Cart/ShippingInfo";
@@ -119,6 +120,10 @@ function AppContent() {
         <Route path="/cart"                  element={<Cart />} />
         <Route path="/verify-email/:token"   element={<VerifyEmail />} />
         <Route path="/resend-verification"   element={<ResendVerification />} />
+        <Route path="/error/401"              element={<ErrorPage status={401} />} />
+        <Route path="/error/403"              element={<ErrorPage status={403} />} />
+        <Route path="/error/404"              element={<ErrorPage status={404} />} />
+        <Route path="/error/503"              element={<ErrorPage status={503} />} />
 
         {/* ── Protected ── */}
         <Route element={<ProtectedRoute />}>
@@ -149,6 +154,9 @@ function AppContent() {
           <Route path="/admin/user/:id"    element={<UpdateUser />} />
           <Route path="/admin/reviews"     element={<ReviewList />} />
         </Route>
+
+        {/* Unknown frontend URLs */}
+        <Route path="*" element={<ErrorPage status={404} />} />
       </Routes>
 
       {!isAdmin && <Footer />}

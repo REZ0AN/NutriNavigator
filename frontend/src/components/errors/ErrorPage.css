@@ -1,0 +1,58 @@
+.error-page {
+  min-height: 72vh;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-8) var(--sp-4);
+  background: var(--color-bg);
+}
+
+.error-page__card {
+  width: min(100%, 560px);
+  padding: var(--sp-12) var(--sp-8);
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-md);
+}
+
+.error-page__code {
+  margin: 0;
+  color: var(--color-primary-light);
+  font-size: clamp(4rem, 14vw, 7rem);
+  font-weight: var(--fw-bold);
+  line-height: 0.9;
+}
+
+.error-page__eyebrow {
+  margin: var(--sp-5) 0 var(--sp-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.error-page h1 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--ff-display);
+  font-size: var(--fs-3xl);
+}
+
+.error-page__message {
+  max-width: 38rem;
+  margin: var(--sp-4) auto 0;
+  color: var(--color-text-secondary);
+}
+
+.error-page__actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-8);
+}
+
+@media (max-width: 480px) {
+  .error-page__card { padding: var(--sp-10) var(--sp-4); }
+  .error-page__actions { flex-direction: column; }
+}

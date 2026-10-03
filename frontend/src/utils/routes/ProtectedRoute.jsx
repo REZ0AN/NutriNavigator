@@ -6,7 +6,7 @@ import Loader from "../../components/layouts/Loader/Loader";
 const ProtectedRoute = () => {
   const { loading, isAuthenticated } = useSelector((state) => state.userR);
   if (loading) return <Loader />;
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/error/401" replace />;
 };
 
 export default ProtectedRoute;

@@ -8,8 +8,8 @@ const ADMIN_ROLES = ["admin", "master"];
 const AdminRoute = () => {
   const { loading, isAuthenticated, user } = useSelector((state) => state.userR);
   if (loading) return <Loader />;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!ADMIN_ROLES.includes(user?.role)) return <Navigate to="/" replace />;
+  if (!isAuthenticated) return <Navigate to="/error/401" replace />;
+  if (!ADMIN_ROLES.includes(user?.role)) return <Navigate to="/error/403" replace />;
   return <Outlet />;
 };
 
