@@ -27,7 +27,6 @@ services:
       # Browser-visible origin used by CORS and email links.
       FRONT_END_URI: ${FRONT_END_URI:-http://localhost:3000}
       # Internal Compose DNS; 127.0.0.1 would point back to the backend container.
-      RECOMMENDATION_SERVICE_SECRET: ${RECOMMENDATION_SERVICE_SECRET:-use_the_same_random_secret_as_backend}
       RECOMMENDATION_SERVICE_URL: http://recommendation_service:5000
     depends_on:
       recommendation_service:
