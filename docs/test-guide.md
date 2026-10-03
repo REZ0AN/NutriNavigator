@@ -33,6 +33,29 @@ cd frontend
 npm test -- --watchAll=false
 ```
 
+Recommendation service tests:
+
+```bash
+cd services/recommendation
+python -m pip install -r requirements.txt httpx
+python -m unittest discover -s tests -v
+```
+
+Run the repository checks before committing:
+
+```bash
+python -m pip install pre-commit==4.6.2
+pre-commit install
+pre-commit run --all-files
+```
+
+The pre-commit configuration checks YAML and merge markers, rejects large
+added files, and runs Ruff linting and formatting for the recommendation
+service. GitHub Actions runs these hooks, the frontend tests and build, backend
+unit and integration tests with `RUN_DB_INTEGRATION=true`, and recommendation
+service tests on pushes and pull requests. The integration job must start an
+in-memory MongoDB; a skipped integration suite is not a passing CI result.
+
 The normal tests do not call MongoDB, Stripe, Cloudinary, SMTP, or the recommendation service. Stripe and browser APIs are mocked; integration tests use an isolated in-memory database.
 
 ## What each suite checks

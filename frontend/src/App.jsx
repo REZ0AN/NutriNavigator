@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Elements } from "@stripe/react-stripe-js";
@@ -76,13 +76,14 @@ function AppContent() {
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((s) => s.userR);
   const isAdmin = location.pathname.startsWith("/admin");
+  const initialUser = useRef(user);
 
   // Load user once on mount only
   useEffect(() => {
-  if (!user) {
-    dispatch(loadUser());
-  }
-}, [dispatch]);
+    if (!initialUser.current) {
+      dispatch(loadUser());
+    }
+  }, [dispatch]);
 
   // Stripe publishable key — fetched once when authenticated
   // Persisted in sessionStorage so page refresh doesn't re-fetch

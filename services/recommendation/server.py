@@ -6,8 +6,8 @@ from typing import Annotated, TypedDict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, status
-from langgraph.graph import END, StateGraph
 from langchain_openai import ChatOpenAI
+from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field, field_validator
 
 load_dotenv()
@@ -88,7 +88,9 @@ def _is_authorized(incoming_secret: str | None) -> bool:
     if not SERVICE_SECRET:
         logger.error("RECOMMENDATION_SERVICE_SECRET is not configured")
         return False
-    return bool(incoming_secret) and hmac.compare_digest(incoming_secret, SERVICE_SECRET)
+    return bool(incoming_secret) and hmac.compare_digest(
+        incoming_secret, SERVICE_SECRET
+    )
 
 
 def _build_structured_model():
@@ -107,19 +109,23 @@ def _build_structured_model():
 def _recommend_node(state: RecommendationState) -> RecommendationState:
     profile = state["profile"]
     structured_model = _build_structured_model()
-    parsed = structured_model.invoke([
-        ("system", SYSTEM_PROMPT),
-        (
-            "human",
-            json.dumps({
-                "age": profile.age,
-                "height_metres": profile.height,
-                "weight_kg": profile.weight,
-                "gender": profile.gender,
-                "disease_codes": profile.diseases,
-            }),
-        ),
-    ])
+    parsed = structured_model.invoke(
+        [
+            ("system", SYSTEM_PROMPT),
+            (
+                "human",
+                json.dumps(
+                    {
+                        "age": profile.age,
+                        "height_metres": profile.height,
+                        "weight_kg": profile.weight,
+                        "gender": profile.gender,
+                        "disease_codes": profile.diseases,
+                    }
+                ),
+            ),
+        ]
+    )
     if not isinstance(parsed, RecommendationResponse):
         parsed = RecommendationResponse.model_validate(parsed)
     return {"recommendations": parsed}
@@ -144,7 +150,9 @@ def health() -> dict[str, str]:
 @app.post("/recommend", response_model=RecommendationResponse)
 def recommend(
     profile: ProfileRequest,
-    recommendation_secret: Annotated[str | None, Header(alias="X-Recommendation-Secret")] = None,
+    recommendation_secret: Annotated[
+        str | None, Header(alias="X-Recommendation-Secret")
+    ] = None,
 ) -> RecommendationResponse:
     if not _is_authorized(recommendation_secret):
         raise HTTPException(
