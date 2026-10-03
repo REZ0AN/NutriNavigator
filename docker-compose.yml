@@ -1,10 +1,10 @@
 services:
   recommendation_service:
     build:
-      context: ./recommendation_service
+      context: ./services/recommendation
     restart: unless-stopped
     env_file:
-      - ./recommendation_service/.env
+      - ./services/recommendation/.env
     expose:
       - "5000"
     healthcheck:
