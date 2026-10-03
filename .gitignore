@@ -34,3 +34,4 @@ node_modules
 /backend/config/config.env
 
 .DS_store
+.ruff_cache/
