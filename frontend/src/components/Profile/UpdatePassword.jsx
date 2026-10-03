@@ -7,6 +7,7 @@ import MetaData from "../layouts/Header/MetaData";
 import Loader from "../layouts/Loader/Loader";
 import { updatePassword, resetProfileOp, clearProfileError } from "../../store/slices/profileSlice";
 import { toastifyOptions } from "../../utils/toastify";
+import { AuthShell, AuthHeader, AuthField, authFormClass, authInputClass, authSubmitClass } from "../Login/AuthShell";
 
 const UpdatePassword = () => {
   const dispatch = useDispatch();
@@ -31,17 +32,15 @@ const UpdatePassword = () => {
   return (
     <>
       <MetaData title="Change Password" />
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-card__header"><h2>Change Password</h2></div>
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <div className="auth-field"><MdVpnKey className="auth-field__icon" /><input type="password" placeholder="Current password" required value={oldPassword} onChange={(e) => setOld(e.target.value)} /></div>
-            <div className="auth-field"><MdLockOpen className="auth-field__icon" /><input type="password" placeholder="New password" required value={newPassword} onChange={(e) => setNew(e.target.value)} /></div>
-            <div className="auth-field"><MdLock className="auth-field__icon" /><input type="password" placeholder="Confirm new password" required value={confirmPassword} onChange={(e) => setConfirm(e.target.value)} /></div>
-            <button type="submit" className="btn btn--primary auth-submit">Update Password</button>
+      <AuthShell>
+          <AuthHeader title="Change Password" />
+          <form className={authFormClass} onSubmit={handleSubmit}>
+            <AuthField label="Current password" icon={MdVpnKey}><input className={authInputClass} type="password" placeholder="Current password" required value={oldPassword} onChange={(e) => setOld(e.target.value)} /></AuthField>
+            <AuthField label="New password" icon={MdLockOpen}><input className={authInputClass} type="password" placeholder="New password" required value={newPassword} onChange={(e) => setNew(e.target.value)} /></AuthField>
+            <AuthField label="Confirm new password" icon={MdLock}><input className={authInputClass} type="password" placeholder="Confirm new password" required value={confirmPassword} onChange={(e) => setConfirm(e.target.value)} /></AuthField>
+            <button type="submit" className={authSubmitClass}>Update Password</button>
           </form>
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 };

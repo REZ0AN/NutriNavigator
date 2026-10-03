@@ -6,7 +6,7 @@ import MetaData from "../layouts/Header/MetaData";
 import Loader from "../layouts/Loader/Loader";
 import { forgotPassword, clearForgotError } from "../../store/slices/userSlice";
 import { toastifyOptions } from "../../utils/toastify";
-import "./ForgotPassword.css";
+import { AuthShell, AuthHeader, AuthField, authFormClass, authInputClass, authSubmitClass } from "../Login/AuthShell";
 
 const ForgotPassword = () => {
   const dispatch = useDispatch();
@@ -28,21 +28,13 @@ const ForgotPassword = () => {
   return (
     <>
       <MetaData title="Forgot Password" />
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-card__header">
-            <h2>Forgot Password?</h2>
-            <p>Enter your email and we'll send you a reset link.</p>
-          </div>
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <div className="auth-field">
-              <MdMailOutline className="auth-field__icon" />
-              <input type="email" placeholder="Email address" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <button type="submit" className="btn btn--primary auth-submit">Send Reset Link</button>
+      <AuthShell>
+          <AuthHeader title="Forgot Password?">Enter your email and we'll send you a reset link.</AuthHeader>
+          <form className={authFormClass} onSubmit={handleSubmit}>
+            <AuthField label="Email address" icon={MdMailOutline}><input className={authInputClass} type="email" placeholder="Email address" required value={email} onChange={(e) => setEmail(e.target.value)} /></AuthField>
+            <button type="submit" className={authSubmitClass}>Send Reset Link</button>
           </form>
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 };

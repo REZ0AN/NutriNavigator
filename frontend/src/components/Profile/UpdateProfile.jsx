@@ -8,6 +8,7 @@ import Loader from "../layouts/Loader/Loader";
 import { updateProfile, resetProfileOp, clearProfileError } from "../../store/slices/profileSlice";
 import { loadUser } from "../../store/slices/userSlice";
 import { toastifyOptions } from "../../utils/toastify";
+import { AuthShell, AuthHeader, AuthField, authFormClass, authInputClass, authSubmitClass } from "../Login/AuthShell";
 
 const UpdateProfile = () => {
   const dispatch  = useDispatch();
@@ -41,26 +42,18 @@ const UpdateProfile = () => {
   return (
     <>
       <MetaData title="Update Profile" />
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-card__header"><h2>Update Profile</h2></div>
-          <form className="auth-form" onSubmit={handleSubmit} encType="multipart/form-data">
-            <div className="auth-field">
-              <MdFace className="auth-field__icon" />
-              <input type="text" placeholder="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
+      <AuthShell>
+          <AuthHeader title="Update Profile" />
+          <form className={authFormClass} onSubmit={handleSubmit} encType="multipart/form-data">
+            <AuthField label="Full name" icon={MdFace}><input className={authInputClass} type="text" placeholder="Full name" required value={name} onChange={(e) => setName(e.target.value)} /></AuthField>
+            <AuthField label="Email address" icon={MdMailOutline}><input className={authInputClass} type="email" placeholder="Email address" required value={email} onChange={(e) => setEmail(e.target.value)} /></AuthField>
+            <div className="flex items-center gap-4">
+              <img src={avatarPreview} alt="Preview" className="h-[50px] w-[50px] rounded-full border-2 border-brand-300 object-cover" />
+              <label className="flex-1 cursor-pointer rounded-lg border border-brand-900 px-4 py-2 text-center font-body text-sm font-medium text-brand-900 hover:bg-brand-900 hover:text-white">Change Avatar<input className="sr-only" type="file" accept="image/*" onChange={handleAvatarChange} /></label>
             </div>
-            <div className="auth-field">
-              <MdMailOutline className="auth-field__icon" />
-              <input type="email" placeholder="Email address" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="auth-avatar">
-              <img src={avatarPreview} alt="Preview" className="auth-avatar__preview" />
-              <label className="auth-avatar__label">Change Avatar<input type="file" accept="image/*" onChange={handleAvatarChange} /></label>
-            </div>
-            <button type="submit" className="btn btn--primary auth-submit">Save Changes</button>
+            <button type="submit" className={authSubmitClass}>Save Changes</button>
           </form>
-        </div>
-      </div>
+      </AuthShell>
     </>
   );
 };

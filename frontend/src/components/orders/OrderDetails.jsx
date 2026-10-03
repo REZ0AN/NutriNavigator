@@ -6,7 +6,10 @@ import MetaData from "../layouts/Header/MetaData";
 import Loader from "../layouts/Loader/Loader";
 import { fetchOrderDetails } from "../../store/slices/orderSlice";
 import { toastifyOptions } from "../../utils/toastify";
-import "./Orders.css";
+
+const sectionClass = "rounded-card border border-admin-border bg-white px-6 py-5";
+const titleClass = "mb-4 border-b border-admin-border pb-3 font-body text-xs font-bold uppercase tracking-widest text-admin-muted";
+const textClass = "mb-2 font-body text-sm leading-relaxed text-earth-600";
 
 const OrderDetails = () => {
   const dispatch = useDispatch();
@@ -27,33 +30,33 @@ useEffect(() => {
   return (
     <>
       <MetaData title={`Order #${order._id}`} />
-      <div className="order-details-page">
-        <h1 className="orders-title">Order <span className="order-id-span">#{order._id}</span></h1>
-        <div className="order-details-grid">
-          <div className="order-details-col">
-            <div className="confirm-section">
-              <h3>Shipping Info</h3>
-              <p><b>Name:</b> {order.user?.name}</p>
-              <p><b>Phone:</b> {order.shippinginfo?.phoneNo}</p>
-              <p><b>Address:</b> {order.shippinginfo?.address}, {order.shippinginfo?.city} — {order.shippinginfo?.pinCode}</p>
+      <div className="mx-auto min-h-[calc(100vh-408px)] max-w-content px-4 py-6 sm:px-6 sm:py-10">
+        <h1 className="mb-8 font-display text-3xl text-brand-900">Order <span className="font-mono text-lg text-admin-muted">#{order._id}</span></h1>
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="flex flex-col gap-5">
+            <div className={sectionClass}>
+              <h3 className={titleClass}>Shipping Info</h3>
+              <p className={textClass}><b>Name:</b> {order.user?.name}</p>
+              <p className={textClass}><b>Phone:</b> {order.shippinginfo?.phoneNo}</p>
+              <p className={textClass}><b>Address:</b> {order.shippinginfo?.address}, {order.shippinginfo?.city} — {order.shippinginfo?.pinCode}</p>
             </div>
-            <div className="confirm-section">
-              <h3>Payment</h3>
-              <p><span className={paid ? "greenColor" : "redColor"}>{paid ? "PAID" : "NOT PAID"}</span></p>
-              <p><b>Amount:</b> ৳{order.totalprice?.toLocaleString()}</p>
+            <div className={sectionClass}>
+              <h3 className={titleClass}>Payment</h3>
+              <p className={textClass}><span className={paid ? "font-semibold text-green-700" : "font-semibold text-red-700"}>{paid ? "PAID" : "NOT PAID"}</span></p>
+              <p className={textClass}><b>Amount:</b> ৳{order.totalprice?.toLocaleString()}</p>
             </div>
-            <div className="confirm-section">
-              <h3>Order Status</h3>
-              <p><span className={order.orderstatus === "delivered" ? "greenColor" : "redColor"}>{order.orderstatus}</span></p>
+            <div className={sectionClass}>
+              <h3 className={titleClass}>Order Status</h3>
+              <p className={textClass}><span className={order.orderstatus === "delivered" ? "font-semibold text-green-700" : "font-semibold text-red-700"}>{order.orderstatus}</span></p>
             </div>
           </div>
-          <div className="confirm-section">
-            <h3>Order Items</h3>
+          <div className={sectionClass}>
+            <h3 className={titleClass}>Order Items</h3>
             {order.orderitems?.map((item) => (
-              <div key={item.product} className="confirm-item">
-                <img src={item.image?.url || item.image} alt={item.name} />
-                <Link to={`/product/${item.product}`}>{item.name}</Link>
-                <span>{item.quantity} × ৳{item.price} = <b>৳{item.price * item.quantity}</b></span>
+              <div key={item.product} className="flex items-center gap-4 border-b border-admin-border py-3 last:border-0 last:pb-0">
+                <img src={item.image?.url || item.image} alt={item.name} className="h-12 w-12 shrink-0 rounded bg-cream-50 object-contain" />
+                <Link to={`/product/${item.product}`} className="flex-1 font-body text-sm text-brand-900 hover:underline">{item.name}</Link>
+                <span className="whitespace-nowrap font-body text-sm text-earth-600">{item.quantity} × ৳{item.price} = <b>৳{item.price * item.quantity}</b></span>
               </div>
             ))}
           </div>

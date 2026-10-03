@@ -11,10 +11,9 @@ import { createOrder } from "../../store/slices/orderSlice";
 import { clearCart } from "../../store/slices/cartSlice";
 import { clearNewOrderError } from "../../store/slices/orderSlice";
 import { toastifyOptions } from "../../utils/toastify";
-import "./ProcessPayment.css";
 
 const CARD_ELEMENT_STYLE = {
-  style: { base: { fontSize: "16px", color: "var(--color-text-primary)", fontFamily: "var(--font-body)", "::placeholder": { color: "var(--color-text-muted)" } } },
+  style: { base: { fontSize: "16px", color: "#242923", fontFamily: "Outfit, system-ui, sans-serif", "::placeholder": { color: "#686E67" } } },
 };
 
 const PAYMENT_ATTEMPT_KEY = "paymentAttemptId";
@@ -114,25 +113,25 @@ const ProcessPayment = () => {
     <>
       <MetaData title="Payment" />
       <CheckoutSteps activeStep={2} />
-      <div className="payment-page">
-        <div className="payment-card">
-          <h2 className="payment-title">Card Details</h2>
-          <form className="payment-form" onSubmit={handleSubmit}>
-            <div className="payment-field">
-              <label><MdCreditCard /> Card Number</label>
-              <div className="payment-stripe-field"><CardNumberElement options={CARD_ELEMENT_STYLE} /></div>
+      <div className="flex min-h-[70vh] items-center justify-center bg-cream-100 px-4 py-8">
+        <div className="w-full max-w-[460px] rounded-card border border-admin-border bg-white p-6 shadow-xl sm:p-8">
+          <h2 className="mb-6 text-center font-display text-2xl text-brand-900">Card Details</h2>
+          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 font-body text-sm font-medium text-earth-600"><MdCreditCard aria-hidden="true" /> Card Number</label>
+              <div className="rounded-lg border border-brand-300 bg-cream-100 px-4 py-3 focus-within:border-brand-700"><CardNumberElement options={CARD_ELEMENT_STYLE} /></div>
             </div>
-            <div className="payment-row">
-              <div className="payment-field">
-                <label><MdEvent /> Expiry</label>
-                <div className="payment-stripe-field"><CardExpiryElement options={CARD_ELEMENT_STYLE} /></div>
+            <div className="grid gap-4 min-[481px]:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 font-body text-sm font-medium text-earth-600"><MdEvent aria-hidden="true" /> Expiry</label>
+                <div className="rounded-lg border border-brand-300 bg-cream-100 px-4 py-3 focus-within:border-brand-700"><CardExpiryElement options={CARD_ELEMENT_STYLE} /></div>
               </div>
-              <div className="payment-field">
-                <label><MdVpnKey /> CVC</label>
-                <div className="payment-stripe-field"><CardCvcElement options={CARD_ELEMENT_STYLE} /></div>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 font-body text-sm font-medium text-earth-600"><MdVpnKey aria-hidden="true" /> CVC</label>
+                <div className="rounded-lg border border-brand-300 bg-cream-100 px-4 py-3 focus-within:border-brand-700"><CardCvcElement options={CARD_ELEMENT_STYLE} /></div>
               </div>
             </div>
-            <button type="submit" ref={payBtn} className="btn btn--primary payment-submit">
+            <button type="submit" ref={payBtn} className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border-2 px-6 py-2.5 font-body text-sm font-semibold tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50 border-transparent bg-brand-900 text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 mt-2 w-full py-4 text-base">
               Pay ৳{orderInfo.totalPrice}
             </button>
           </form>
