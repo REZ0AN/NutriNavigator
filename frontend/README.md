@@ -114,9 +114,11 @@ scrolling for data tables.
 The home page, shared product card, storefront header, footer, and admin
 dashboard now use Tailwind utilities. `Button`, `Container`, `MetricCard`,
 `AnalyticsPanel`, and `AnalyticsToolbar` are shared presentation components.
-Former CSS files remain in the repository for comparison until the migrated
-screens receive visual checks at desktop, tablet, and mobile sizes. Other admin
-pages and the remaining storefront flows still use their existing CSS.
+Some former storefront CSS files remain in the repository for comparison until
+the migrated screens receive visual checks at desktop, tablet, and mobile
+sizes. The dashboard's unused stylesheet has been removed; its current styles
+live in the JSX components. Other admin pages and the remaining storefront
+flows still use their existing CSS.
 
 ## Use cases and user flows
 

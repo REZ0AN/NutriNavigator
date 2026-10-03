@@ -15,10 +15,15 @@ import { getAllAdminProducts } from "../../../store/slices/productSlice";
 import { fetchAllOrders, fetchOrderDashboardMetrics } from "../../../store/slices/orderSlice";
 import { getAllUsers } from "../../../store/slices/userSlice";
 
-const GREEN  = "#1A3C2E";
+const GREEN  = "#173525";
 const AMBER  = "#D4830A";
 const BLUE   = "#1A5F8A";
 const PIE_COLORS = { processing: AMBER, shipped: BLUE, delivered: GREEN };
+const ORDER_STATUS_CLASSES = {
+  processing: "bg-amber-50 text-amber-800",
+  shipped: "bg-blue-50 text-blue-800",
+  delivered: "bg-green-50 text-green-800",
+};
 const MAX_RANGE_DAYS = 366;
 
 const pad = (value) => String(value).padStart(2, "0");
@@ -343,7 +348,7 @@ const Dashboard = () => {
                       <tr key={order._id} className="border-b border-admin-border last:border-0">
                         <td className="py-3 pr-3"><Link to={`/admin/order/${order._id}`} className="font-medium text-brand-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">#{order._id.slice(-8)}</Link></td>
                         <td className="py-3 pr-3 text-admin-ink">{money(order.totalprice || 0)}</td>
-                        <td className="py-3"><span className="capitalize text-admin-muted">{order.orderstatus}</span></td>
+                        <td className="py-3"><span className={`inline-flex rounded-full px-2.5 py-1 font-body text-xs font-medium capitalize ${ORDER_STATUS_CLASSES[order.orderstatus] || "bg-admin-canvas text-admin-muted"}`}>{order.orderstatus}</span></td>
                       </tr>
                     ))}</tbody>
                   </table>
