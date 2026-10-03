@@ -173,8 +173,11 @@ export const logoutUser = catchAsyncErrors(async (req, res) => {
 // ── Forgot password — use hashed token ───────────────────────────────────────
 export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
   const user = await User.findOne({ email: req.body.email });
-  if (!user)
-    return next(new ErrorHandler("No account found with that email", 404));
+  const genericResponse = {
+    success: true,
+    message: "If an account exists for that email, a password reset link has been sent.",
+  };
+  if (!user) return res.status(200).json(genericResponse);
 
   const rawToken = user.getResetPasswordToken(); // stores hashed, returns raw
   await user.save({ validateBeforeSave: false });
@@ -187,9 +190,7 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
     html: passwordResetEmailTemplate(user.name, resetUrl),
   });
 
-  res
-    .status(200)
-    .json({ success: true, message: `Reset email sent to ${user.email}` });
+  res.status(200).json(genericResponse);
 });
 
 // ── Reset password — compare against hashed token ────────────────────────────
@@ -211,6 +212,7 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Passwords do not match", 400));
 
   user.password = req.body.password;
+  user.tokenVersion = (user.tokenVersion ?? 0) + 1;
   user.resetPasswordToken = undefined;
   user.resetPasswordExpires = undefined;
   await user.save();
@@ -240,6 +242,7 @@ export const updateUserPassword = catchAsyncErrors(async (req, res, next) => {
   }
 
   user.password = req.body.newPassword;
+  user.tokenVersion = (user.tokenVersion ?? 0) + 1;
   await user.save();
 
   sendToken(user, 200, res);

@@ -14,11 +14,20 @@ export const isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler("Please log in to access this resource.", 401));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+        return next(new ErrorHandler("Please log in to access this resource.", 401));
+    }
     req.user = await User.findById(decoded.id);
 
     if (!req.user) {
         return next(new ErrorHandler("User belonging to this token no longer exists.", 401));
+    }
+
+    if ((decoded.tokenVersion ?? 0) !== (req.user.tokenVersion ?? 0)) {
+        return next(new ErrorHandler("Please log in to access this resource.", 401));
     }
 
     next();

@@ -46,6 +46,9 @@ const userSchema = new mongoose.Schema(
 
         failedLoginAttempts: { type: Number, default: 0 },
         lockUntil: { type: Date },
+        // Incremented whenever a password changes so previously issued JWTs
+        // become invalid without maintaining a server-side session table.
+        tokenVersion: { type: Number, default: 0 },
     },
     { timestamps: true }
 );
@@ -61,7 +64,7 @@ userSchema.pre("save", async function (next) {
 
 /** Generate a signed JWT for this user. */
 userSchema.methods.getJWT = function () {
-    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+    return jwt.sign({ id: this._id, tokenVersion: this.tokenVersion ?? 0 }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE,
     });
 };

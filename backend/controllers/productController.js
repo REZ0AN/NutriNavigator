@@ -201,7 +201,17 @@ export const getAllReviews = catchAsyncErrors(async (req, res) => {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 25, 1), 100);
     const sortKey = ["newest", "oldest", "highest", "lowest"].includes(req.query.sort) ? req.query.sort : "newest";
     const cursor = decodeCursor(req.query.cursor);
-    if (req.query.cursor && !cursor) return next(new ErrorHandler("Invalid review cursor.", 400));
+    if (req.query.cursor && (!cursor || cursor.value === undefined || cursor.id === undefined)) {
+        return res.status(400).json({ success: false, message: "Invalid review cursor." });
+    }
+    const cursorValue = cursor && (sortKey === "highest" || sortKey === "lowest")
+        ? Number(cursor.value)
+        : cursor && new Date(cursor.value);
+    if (cursor && ((sortKey === "highest" || sortKey === "lowest")
+        ? !Number.isFinite(cursorValue)
+        : Number.isNaN(cursorValue.getTime()))) {
+        return res.status(400).json({ success: false, message: "Invalid review cursor." });
+    }
     const filter = {};
     if (req.query.rating && ["1", "2", "3", "4", "5"].includes(req.query.rating)) filter.rating = Number(req.query.rating);
     if (req.query.productId && mongoose.isValidObjectId(req.query.productId)) filter.product = req.query.productId;
@@ -215,7 +225,7 @@ export const getAllReviews = catchAsyncErrors(async (req, res) => {
     // Existing installations may still have embedded reviews from before the
     // standalone collection was introduced. Keep those visible while they are
     // being migrated; all newly created reviews use the indexed collection.
-    if (!cursor && !(await Review.exists({}))) {
+    if (!(await Review.exists({}))) {
         const legacyProducts = await Product.find({ "reviews.0": { $exists: true } }).select("name images reviews").lean();
         let legacyReviews = legacyProducts.flatMap((product) => product.reviews.map((review) => formatAdminReview(review, product)));
         if (req.query.rating) legacyReviews = legacyReviews.filter((review) => review.rating === Number(req.query.rating));
@@ -225,12 +235,44 @@ export const getAllReviews = catchAsyncErrors(async (req, res) => {
             legacyReviews = legacyReviews.filter((review) => `${review.productName} ${review.userName} ${review.comment}`.toLowerCase().includes(expression));
         }
         legacyReviews.sort((a, b) => {
-            if (sortKey === "highest" || sortKey === "lowest") return sortKey === "highest" ? b.rating - a.rating : a.rating - b.rating;
+            if (sortKey === "highest" || sortKey === "lowest") {
+                const ratingDifference = sortKey === "highest" ? b.rating - a.rating : a.rating - b.rating;
+                return ratingDifference || (sortKey === "highest"
+                    ? String(b.reviewId).localeCompare(String(a.reviewId))
+                    : String(a.reviewId).localeCompare(String(b.reviewId)));
+            }
             const direction = sortKey === "oldest" ? 1 : -1;
-            return direction * (new Date(a.createdAt) - new Date(b.createdAt));
+            return direction * (new Date(a.createdAt) - new Date(b.createdAt))
+                || direction * String(a.reviewId).localeCompare(String(b.reviewId));
         });
-        const page = legacyReviews.slice(0, limit);
-        return res.status(200).json({ success: true, reviews: page, hasNextPage: legacyReviews.length > limit, nextCursor: null });
+        const afterCursor = cursor
+            ? legacyReviews.findIndex((review) => {
+                const primary = (sortKey === "highest" || sortKey === "lowest")
+                    ? review.rating - cursorValue
+                    : new Date(review.createdAt).getTime() - cursorValue.getTime();
+                const descending = sortKey === "newest" || sortKey === "highest";
+                return (descending ? primary < 0 : primary > 0)
+                    || (primary === 0 && (descending
+                        ? String(review.reviewId).localeCompare(String(cursor.id)) < 0
+                        : String(review.reviewId).localeCompare(String(cursor.id)) > 0));
+            })
+            : -1;
+        if (cursor && afterCursor === -1) {
+            return res.status(400).json({ success: false, message: "Invalid review cursor." });
+        }
+        const candidates = afterCursor === -1 ? legacyReviews : legacyReviews.slice(afterCursor);
+        const page = candidates.slice(0, limit);
+        const hasNextPage = candidates.length > limit;
+        const last = page.at(-1);
+        return res.status(200).json({
+            success: true,
+            reviews: page,
+            hasNextPage,
+            nextCursor: hasNextPage ? encodeCursor({
+                value: sortKey === "highest" || sortKey === "lowest" ? last.rating : last.createdAt,
+                id: last.reviewId,
+            }) : null,
+        });
     }
 
     const sort = sortKey === "oldest" ? { createdAt: 1, _id: 1 } : sortKey === "highest" ? { rating: -1, _id: -1 } : sortKey === "lowest" ? { rating: 1, _id: 1 } : { createdAt: -1, _id: -1 };
@@ -305,20 +347,4 @@ export const deleteReviews = catchAsyncErrors(async (req, res, next) => {
     );
 
     res.status(200).json({ success: true, message: "Review deleted successfully." });
-});
-
-// ─── Get recommended products (ML integration) ───────────────────────────────
-export const getRecommendedProducts = catchAsyncErrors(async (req, res, next) => {
-    const { keywords } = req.body;
-
-    if (!Array.isArray(keywords) || keywords.length === 0) {
-        return next(new ErrorHandler("Keywords must be a non-empty array.", 400));
-    }
-
-    const processedKeys = keywords.map((key) => key.split(" (")[0].trim());
-    const regexPattern = new RegExp(processedKeys.join("|"), "i");
-
-    const results = await Product.find({ name: { $regex: regexPattern } }).select("name _id");
-
-    res.status(200).json({ recommended_foods: results });
 });

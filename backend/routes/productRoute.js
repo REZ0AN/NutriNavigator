@@ -11,7 +11,6 @@ import {
     getAllReviews,
     getProductReviews,
     deleteReviews,
-    getRecommendedProducts,
 } from "../controllers/productController.js";
 
 const router = express.Router();
@@ -298,47 +297,5 @@ router.route("/reviews").get(getProductReviews).delete(isAuthenticatedUser, dele
  *                   items: { $ref: '#/components/schemas/Review' }
  */
 router.get("/admin/reviews", isAuthenticatedUser, authorizeRoles("admin", "master"), getAllReviews);
-
-/**
- * @swagger
- * /getrecommendedproduct:
- *   post:
- *     summary: Fetch products matching ML-recommended food keywords
- *     tags: [Diet Recommendation]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [keywords]
- *             properties:
- *               keywords:
- *                 type: array
- *                 items: { type: string }
- *                 example: ["Spinach (পালং শাক)", "Apple (আপেল)"]
- *     responses:
- *       200:
- *         description: Matching products
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 recommended_foods:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id: { type: string }
- *                       name: { type: string }
- *       400:
- *         description: Invalid keywords
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-router.post("/getrecommendedproduct", isAuthenticatedUser, getRecommendedProducts);
 
 export default router;

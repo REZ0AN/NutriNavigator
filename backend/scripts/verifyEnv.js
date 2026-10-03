@@ -43,7 +43,8 @@ const required = [
     "CLOUDINARY_NAME", "CLOUDINARY_API", "CLOUDINARY_API_SECRET",
     "STRIPE_API_KEY", "STRIPE_SECRET_KEY",
     "SMTP_HOST", "SMTP_PORT", "SMTP_MAIL", "SMTP_PASS",
-    "FRONT_END_URI",
+    "FRONT_END_URI", "RECOMMENDATION_SERVICE_URL",
+    "RECOMMENDATION_SERVICE_SECRET",
 ];
 
 const missing = required.filter((key) => !process.env[key]);

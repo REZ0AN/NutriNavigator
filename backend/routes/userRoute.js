@@ -143,17 +143,11 @@ router.get("/logout", isAuthenticatedUser, logoutUser);
  *               email: { type: string, format: email, example: john@example.com }
  *     responses:
  *       200:
- *         description: Reset email sent
+ *         description: A generic response is returned whether or not the email exists
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessage'
- *       404:
- *         description: Email not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/password/forgot", authLimiter, forgotPassword);
 
