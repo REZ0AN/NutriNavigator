@@ -107,18 +107,18 @@ scrolling for data tables.
   `src/components/layouts/Footer/`.
 - Admin shell and shared admin controls: `src/components/Admin/AdminLayout.css`
   and `src/components/Admin/Sidebar/`.
-- Screen-specific layout: the `.css` file beside each page component.
+- Screens still awaiting migration use a `.css` file beside the component;
+  migrated screens use Tailwind classes in JSX.
 
 ### Redesign progress
 
 The home page, shared product card, storefront header, footer, and admin
 dashboard now use Tailwind utilities. `Button`, `Container`, `MetricCard`,
 `AnalyticsPanel`, and `AnalyticsToolbar` are shared presentation components.
-Some former storefront CSS files remain in the repository for comparison until
-the migrated screens receive visual checks at desktop, tablet, and mobile
-sizes. The dashboard's unused stylesheet has been removed; its current styles
-live in the JSX components. Other admin pages and the remaining storefront
-flows still use their existing CSS.
+Unused stylesheets for Home, ProductCard, Header, Footer, ResetPassword, and
+the dashboard have been removed. Their current styles live in JSX with
+Tailwind classes. Other admin pages and storefront flows still import their
+existing CSS while awaiting migration.
 
 ## Use cases and user flows
 
